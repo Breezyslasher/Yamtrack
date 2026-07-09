@@ -419,6 +419,68 @@ class ImportTVTime(TestCase):
         )
         self.assertIn("skipped 1 list movie", warnings)
 
+    @patch("integrations.imports.tvtime.services.search")
+    def test_movie_comment_attached_as_notes(self, mock_search):
+        """A movie comment is attached to the matched movie's notes."""
+        mock_search.return_value = {
+            "results": [
+                {
+                    "source": "tmdb",
+                    "media_type": "movie",
+                    "media_id": 809,
+                    "title": "Zootopia",
+                    "image": "z",
+                },
+            ],
+        }
+        movie_uuid = "33a5696a-ccd0-4e8d-b8c7-5733f6a182b4"
+        v1_movies = (
+            "uuid,type,entity_type,movie_name,release_date,watch_date,created_at\n"
+            f"{movie_uuid},watch,movie,Zootopia,2016-02-11 00:00:00,"
+            "2016-03-01 00:00:00,2016-03-01 00:00:00\n"
+        )
+        comments = (
+            "type,entity_type,entity_uuid,text,series_name\n"
+            f"comment,movie,{movie_uuid},Loved it,\n"
+        )
+        zip_file = build_zip(
+            {
+                "tracking-prod-records.csv": v1_movies,
+                "comments-prod-comments.csv": comments,
+            },
+        )
+
+        tvtime.importer(zip_file, self.user, "new")
+
+        self.assertEqual(Movie.objects.get(item__media_id="809").notes, "Loved it")
+
+    @patch("integrations.imports.tvtime.TVTimeImporter._map_series")
+    @patch("integrations.imports.tvtime.TVTimeImporter._get_metadata")
+    def test_show_comment_attached_as_notes(self, mock_get_metadata, mock_map_series):
+        """A show comment is attached to the matched show's notes, by name."""
+        mock_get_metadata.side_effect = tv_metadata_side_effect
+        mock_map_series.side_effect = lambda series_id, _: (
+            "500" if series_id == "111" else None
+        )
+        comments = (
+            "type,entity_type,entity_uuid,text,series_name\n"
+            "comment,series,some-uuid,Great show,Test Show\n"
+            "comment,episode,ep-uuid,Nice episode,Test Show\n"
+        )
+        zip_file = build_zip(
+            {
+                "user_tv_show_data.csv": SHOW_DATA,
+                "tracking-prod-records-v2.csv": TRACKING_V2,
+                "comments-prod-comments.csv": comments,
+            },
+        )
+
+        _, warnings = tvtime.importer(zip_file, self.user, "new")
+
+        self.assertEqual(TV.objects.get(item__media_id="500").notes, "Great show")
+        # The episode comment cannot be attached (episodes have no notes).
+        self.assertIn("1 comment(s) could not be attached", warnings)
+
     def test_parse_list_items(self):
         """Test parsing the Go-map dump of list items."""
         importer_instance = TVTimeImporter(io.BytesIO(), self.user, "new")

@@ -108,6 +108,7 @@ the **Export password** field before selecting the file.
 - **Watched movies**, marked as `Completed`. Movies you added to your watchlist
   are imported with a `Planning` status.
 - **Custom lists**, recreated as YamTrack custom lists with their series members.
+- **Comments**, attached as notes on the matching show or movie.
 
 ### Limitations
 
@@ -117,8 +118,9 @@ the **Export password** field before selecting the file.
   and spacing normalized (which helps stylized non-English titles). Any movie
   that still can't be matched is listed in the import summary so you can add it
   manually — it is worth reviewing imported movies afterwards.
-- **Comments are not imported.** TV Time exports them without an identifier that
-  can be matched to The Movie Database.
+- **Comments** are imported as notes on the matching show or movie (movies are
+  matched by their TV Time id, shows by name). Comments on individual episodes
+  can't be imported because Yamtrack episodes have no notes field.
 - **Movies inside custom lists** are added when the same movie also appears in
   your watch history (they are matched by TV Time's internal id to the movie that
   was already resolved to The Movie Database). A list movie that you never watched
