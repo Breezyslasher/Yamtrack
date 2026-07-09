@@ -24,8 +24,10 @@ from app.forms import EpisodeForm, ManualItemForm, get_form_class
 from app.models import (
     TV,
     BasicMedia,
+    Comment,
     Item,
     MediaTypes,
+    Reactions,
     Season,
     Sources,
     Status,
@@ -312,8 +314,69 @@ def media_details(request, source, media_type, media_id, title):  # noqa: ARG001
         "current_instance": current_instance,
         "watch_providers": watch_providers,
         "watch_provider_region": request.user.watch_provider_region,
+        "comments": _user_comments(request.user, current_instance),
+        "reactions": Reactions.choices,
     }
     return render(request, "app/media_details.html", context)
+
+
+def _user_comments(user, current_instance):
+    """Return the user's comments for a tracked media item, if any."""
+    if current_instance is None:
+        return Comment.objects.none()
+    return Comment.objects.filter(item=current_instance.item, user=user)
+
+
+@require_POST
+def add_comment(request, media_type, instance_id):
+    """Add a comment and/or reaction to a tracked media item."""
+    media = helpers.get_owned_media_or_404(request, media_type, instance_id)
+
+    text = request.POST.get("text", "").strip()
+    reaction = request.POST.get("reaction", "").strip()
+    if reaction not in Reactions.values:
+        reaction = ""
+
+    if not text and not reaction:
+        return HttpResponseBadRequest("A comment or reaction is required.")
+
+    Comment.objects.create(
+        item=media.item,
+        user=request.user,
+        text=text,
+        reaction=reaction,
+        is_spoiler=request.POST.get("is_spoiler") == "on",
+    )
+
+    return _render_comments(request, media)
+
+
+@require_POST
+def delete_comment(request, media_type, instance_id, comment_id):
+    """Delete one of the user's comments."""
+    media = helpers.get_owned_media_or_404(request, media_type, instance_id)
+    comment = get_object_or_404(
+        Comment,
+        id=comment_id,
+        item=media.item,
+        user=request.user,
+    )
+    comment.delete()
+    return _render_comments(request, media)
+
+
+def _render_comments(request, media):
+    """Render the comments section partial for a media item."""
+    return render(
+        request,
+        "app/components/comments.html",
+        {
+            "current_instance": media,
+            "media_type": media.item.media_type,
+            "comments": Comment.objects.filter(item=media.item, user=request.user),
+            "reactions": Reactions.choices,
+        },
+    )
 
 
 @require_GET

@@ -26,6 +26,16 @@ urlpatterns = [
         name="update_media_score",
     ),
     path(
+        "comment/add/<media_type:media_type>/<int:instance_id>",
+        views.add_comment,
+        name="add_comment",
+    ),
+    path(
+        "comment/delete/<media_type:media_type>/<int:instance_id>/<int:comment_id>",
+        views.delete_comment,
+        name="delete_comment",
+    ),
+    path(
         "details/sync/<source:source>/<media_type:media_type>/<str:media_id>",
         views.sync_metadata,
         name="sync_metadata",

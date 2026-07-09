@@ -7,6 +7,7 @@ from django.test import TestCase
 
 from app.models import (
     TV,
+    Comment,
     Episode,
     MediaTypes,
     Movie,
@@ -420,8 +421,8 @@ class ImportTVTime(TestCase):
         self.assertIn("skipped 1 list movie", warnings)
 
     @patch("integrations.imports.tvtime.services.search")
-    def test_movie_comment_attached_as_notes(self, mock_search):
-        """A movie comment is attached to the matched movie's notes."""
+    def test_movie_comment_imported(self, mock_search):
+        """A movie comment becomes a Comment on the matched movie's item."""
         mock_search.return_value = {
             "results": [
                 {
@@ -440,8 +441,8 @@ class ImportTVTime(TestCase):
             "2016-03-01 00:00:00,2016-03-01 00:00:00\n"
         )
         comments = (
-            "type,entity_type,entity_uuid,text,series_name\n"
-            f"comment,movie,{movie_uuid},Loved it,\n"
+            "type,entity_type,entity_uuid,text,is_spoiler,created_at,series_name\n"
+            f"comment,movie,{movie_uuid},Loved it,true,2016-03-02 00:00:00,\n"
         )
         zip_file = build_zip(
             {
@@ -452,20 +453,23 @@ class ImportTVTime(TestCase):
 
         tvtime.importer(zip_file, self.user, "new")
 
-        self.assertEqual(Movie.objects.get(item__media_id="809").notes, "Loved it")
+        movie = Movie.objects.get(item__media_id="809")
+        comment = Comment.objects.get(item=movie.item)
+        self.assertEqual(comment.text, "Loved it")
+        self.assertTrue(comment.is_spoiler)
 
     @patch("integrations.imports.tvtime.TVTimeImporter._map_series")
     @patch("integrations.imports.tvtime.TVTimeImporter._get_metadata")
-    def test_show_comment_attached_as_notes(self, mock_get_metadata, mock_map_series):
-        """A show comment is attached to the matched show's notes, by name."""
+    def test_show_comment_imported(self, mock_get_metadata, mock_map_series):
+        """A show comment becomes a Comment on the matched show, by name."""
         mock_get_metadata.side_effect = tv_metadata_side_effect
         mock_map_series.side_effect = lambda series_id, _: (
             "500" if series_id == "111" else None
         )
         comments = (
-            "type,entity_type,entity_uuid,text,series_name\n"
-            "comment,series,some-uuid,Great show,Test Show\n"
-            "comment,episode,ep-uuid,Nice episode,Test Show\n"
+            "type,entity_type,entity_uuid,text,is_spoiler,created_at,series_name\n"
+            "comment,series,some-uuid,Great show,false,2021-01-01 00:00:00,Test Show\n"
+            "comment,episode,ep-uuid,Nice episode,false,2021-01-01 00:00:00,Test Show\n"
         )
         zip_file = build_zip(
             {
@@ -477,8 +481,9 @@ class ImportTVTime(TestCase):
 
         _, warnings = tvtime.importer(zip_file, self.user, "new")
 
-        self.assertEqual(TV.objects.get(item__media_id="500").notes, "Great show")
-        # The episode comment cannot be attached (episodes have no notes).
+        tv = TV.objects.get(item__media_id="500")
+        self.assertEqual(Comment.objects.get(item=tv.item).text, "Great show")
+        # The episode comment can't be targeted to a specific episode.
         self.assertIn("1 comment(s) could not be attached", warnings)
 
     def test_parse_list_items(self):

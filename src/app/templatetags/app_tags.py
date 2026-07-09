@@ -485,3 +485,21 @@ def seconds_to_duration(seconds):
     if minutes >= 45:  # noqa: PLR2004
         return f"{hours + 1}h"
     return f"{hours}h" if minutes < 15 else f"{hours}h 30m"  # noqa: PLR2004
+
+
+REACTION_EMOJI = {
+    "love": "❤️",
+    "like": "\U0001f44d",
+    "funny": "\U0001f602",
+    "surprised": "\U0001f62e",
+    "sad": "\U0001f622",
+    "scared": "\U0001f631",
+    "angry": "\U0001f620",
+    "meh": "\U0001f610",
+}
+
+
+@register.filter
+def reaction_emoji(value):
+    """Return the emoji for a comment reaction value."""
+    return REACTION_EMOJI.get(value, "")

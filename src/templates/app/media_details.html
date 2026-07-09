@@ -142,6 +142,10 @@
             </button>
           </div>
         {% endif %}
+
+        {% if current_instance %}
+          {% include "app/components/comments.html" %}
+        {% endif %}
       </div>
 
       {# Source score #}

@@ -1925,3 +1925,47 @@ class BoardGame(Media):
     """Model for board games."""
 
     tracker = FieldTracker()
+
+
+class Reactions(models.TextChoices):
+    """TV Time-style emotion reactions for a comment."""
+
+    LOVE = "love", "Love"
+    LIKE = "like", "Like"
+    FUNNY = "funny", "Funny"
+    SURPRISED = "surprised", "Surprised"
+    SAD = "sad", "Sad"
+    SCARED = "scared", "Scared"
+    ANGRY = "angry", "Angry"
+    MEH = "meh", "Meh"
+
+
+class Comment(models.Model):
+    """A user's timestamped comment and/or reaction on a media item.
+
+    Anchored on Item so it works uniformly for shows, seasons, episodes and
+    movies. Comments are private to their author.
+    """
+
+    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name="comments")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    text = models.TextField(blank=True, default="")
+    reaction = models.CharField(
+        max_length=20,
+        choices=Reactions,
+        blank=True,
+        default="",
+    )
+    is_spoiler = models.BooleanField(default=False)
+    # Settable on import so a TV Time comment keeps its original date.
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        """Meta options for the model."""
+
+        ordering = ["created_at"]
+
+    def __str__(self):
+        """Return a readable label for the comment."""
+        return f"Comment by {self.user} on {self.item}"

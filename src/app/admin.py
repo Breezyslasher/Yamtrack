@@ -5,6 +5,7 @@ from django.contrib import admin
 from django.contrib.admin.sites import AlreadyRegistered
 
 from app.models import (
+    Comment,
     Episode,
     Item,
     UserMessage,
@@ -45,6 +46,15 @@ class UserMessageAdmin(admin.ModelAdmin):
     list_filter = ["level", "shown_at"]
 
 
+@admin.register(Comment)
+class CommentAdmin(admin.ModelAdmin):
+    """Custom admin for media comments."""
+
+    search_fields = ["item__title", "user__username", "text"]
+    list_display = ["__str__", "reaction", "is_spoiler", "user", "created_at"]
+    list_filter = ["reaction", "is_spoiler"]
+
+
 class MediaAdmin(admin.ModelAdmin):
     """Custom admin for regular media model with search and filter options."""
 
@@ -58,7 +68,7 @@ class MediaAdmin(admin.ModelAdmin):
 
 # Auto-register remaining models
 app_models = apps.get_app_config("app").get_models()
-SpecialModels = ["Item", "Episode", "BasicMedia", "UserMessage"]
+SpecialModels = ["Item", "Episode", "BasicMedia", "UserMessage", "Comment"]
 for model in app_models:
     if (
         not model.__name__.startswith("Historical")

@@ -113,7 +113,6 @@ class TVTimeImporter:
         self.series_scores = defaultdict(list)  # tvdb_series_id -> [score, ...]
         self.movie_tmdb_ids = set()  # tmdb ids already added as movies
         self.movie_item_by_uuid = {}  # TV Time movie uuid -> matched TMDB Item
-        self.movie_instance_by_uuid = {}  # TV Time movie uuid -> Movie instance
         self.lists_created = 0
 
         logger.info(
@@ -140,8 +139,7 @@ class TVTimeImporter:
         self._process_watched(watched)
         self._process_watchlist()
         self._process_movies(files)
-        # Comments attach notes to the show/movie instances built above, so run
-        # before those instances are bulk-created.
+        # Comments become Comment rows on the items resolved above.
         self._process_comments(files)
 
         helpers.cleanup_existing_media(self.to_delete, self.user)
@@ -861,12 +859,12 @@ class TVTimeImporter:
             self.tv_instances[tmdb_id] = tv_instance
 
     def _process_comments(self, files):
-        """Attach TV Time comments as notes on the matching show or movie.
+        """Import TV Time comments as Comment records on shows and movies.
 
         Movie comments reference the movie by its TV Time uuid (resolved against
         the movies matched from the watch history); show comments reference the
         show by name (resolved through the show data). Episode comments are
-        skipped -- Yamtrack episodes have no notes field.
+        skipped -- they carry no episode identifier to target.
         """
         rows = files.get(FILE_COMMENTS)
         if not rows:
@@ -881,12 +879,22 @@ class TVTimeImporter:
             if not text:
                 continue
 
-            instance = self._comment_target(row)
-            if instance is None:
+            item = self._comment_target(row)
+            if item is None:
                 skipped += 1
                 continue
 
-            instance.notes = f"{instance.notes}\n\n{text}".strip()
+            app.models.Comment.objects.get_or_create(
+                item=item,
+                user=self.user,
+                text=text,
+                defaults={
+                    "is_spoiler": (row.get("is_spoiler") or "").strip().lower()
+                    == "true",
+                    "created_at": self._parse_dt(row.get("created_at"))
+                    or timezone.now(),
+                },
+            )
 
         if skipped:
             self.warnings.append(
@@ -895,12 +903,12 @@ class TVTimeImporter:
             )
 
     def _comment_target(self, row):
-        """Return the show/movie instance a comment belongs to, or None."""
+        """Return the Item a comment belongs to, or None."""
         entity_type = (row.get("entity_type") or "").strip()
 
         if entity_type == "movie":
             uuid = (row.get("entity_uuid") or "").strip()
-            return self.movie_instance_by_uuid.get(uuid)
+            return self.movie_item_by_uuid.get(uuid)
 
         if entity_type in ("series", "show"):
             series_name = (row.get("series_name") or "").strip()
@@ -909,7 +917,8 @@ class TVTimeImporter:
                 return None
             # _map_series is cached, so this reuses the show's earlier lookup.
             tmdb_id = self._map_series(series_id, series_name)
-            return self.tv_instances.get(tmdb_id) if tmdb_id else None
+            tv_instance = self.tv_instances.get(tmdb_id) if tmdb_id else None
+            return tv_instance.item if tv_instance else None
 
         return None
 
@@ -1035,8 +1044,6 @@ class TVTimeImporter:
         )
         movie_instance._history_date = watched_at or timezone.now()
         self.bulk_media[MediaTypes.MOVIE.value].append(movie_instance)
-        for uuid in uuids:
-            self.movie_instance_by_uuid[uuid] = movie_instance
 
     def _search_movie(self, title):
         """Return (tmdb_id, title, image) for the best TMDB match, or None.
