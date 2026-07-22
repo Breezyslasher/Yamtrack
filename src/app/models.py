@@ -414,7 +414,7 @@ class MediaManager(models.Manager):
         user,
         status,
         sort_by,
-        items_limit,
+        items_limit=None,
         specific_media_type=None,
     ):
         """Get a home media list for a specific status grouped by media type."""
@@ -442,7 +442,9 @@ class MediaManager(models.Manager):
 
             # Apply pagination
             total_count = len(sorted_list)
-            if specific_media_type:
+            if items_limit is None:
+                paginated_list = sorted_list
+            elif specific_media_type:
                 paginated_list = sorted_list[items_limit:]
             else:
                 paginated_list = sorted_list[:items_limit]
@@ -668,9 +670,10 @@ class MediaManager(models.Manager):
         queryset = model.objects.filter(**params)
 
         queryset = self._apply_prefetch_related(queryset, media_type)
-        self.annotate_max_progress(queryset, media_type)
+        media = queryset.get()
+        self.annotate_max_progress([media], media_type)
 
-        return queryset.get()
+        return media
 
     def _get_media_params(
         self,
@@ -732,6 +735,104 @@ class MediaManager(models.Manager):
         self.annotate_max_progress(queryset, media_type)
 
         return queryset
+
+    def get_serie_seasons(
+        self,
+        user,
+        media_id,
+        source,
+        season_numbers=None,
+    ):
+        """Return tracked season consumptions for a show."""
+        queryset = self.filter_media_prefetch(
+            user,
+            media_id,
+            MediaTypes.SEASON.value,
+            source,
+        )
+
+        if season_numbers is not None:
+            season_numbers = [number for number in season_numbers if number is not None]
+            if not season_numbers:
+                return queryset.none()
+            queryset = queryset.filter(item__season_number__in=season_numbers)
+
+        return queryset
+
+    def get_serie_season_lists_by_number(self, user, tracked_seasons):
+        """Return a dictionary mapping season numbers to their list memberships."""
+        tracked_seasons = list(tracked_seasons)
+        if user is None or not tracked_seasons:
+            return {}
+
+        custom_list_item_model = apps.get_model(
+            app_label="lists",
+            model_name="customlistitem",
+        )
+        lists_by_item_id = custom_list_item_model.objects.get_user_item_lists_map(
+            user,
+            [tracked.item_id for tracked in tracked_seasons],
+        )
+
+        lists_by_number = {}
+        for tracked in tracked_seasons:
+            season_number = getattr(tracked.item, "season_number", None)
+            if season_number is None:
+                continue
+            lists_by_number[season_number] = lists_by_item_id.get(tracked.item_id, [])
+
+        return lists_by_number
+
+    def get_season_episodes(
+        self,
+        user,
+        media_id,
+        source,
+        season_number=None,
+        episode_numbers=None,
+    ):
+        """Return tracked episode consumptions for a show."""
+        queryset = self.filter_media_prefetch(
+            user,
+            media_id,
+            MediaTypes.EPISODE.value,
+            source,
+            season_number=season_number,
+        )
+
+        if episode_numbers is not None:
+            episode_numbers = [
+                number for number in episode_numbers if number is not None
+            ]
+            if not episode_numbers:
+                return queryset.none()
+            queryset = queryset.filter(item__episode_number__in=episode_numbers)
+
+        return queryset
+
+    def get_season_episode_lists_by_number(self, user, tracked_episodes):
+        """Return a dictionary mapping episode numbers to their list memberships."""
+        tracked_episodes = list(tracked_episodes)
+        if user is None or not tracked_episodes:
+            return {}
+
+        custom_list_item_model = apps.get_model(
+            app_label="lists",
+            model_name="customlistitem",
+        )
+        lists_by_item_id = custom_list_item_model.objects.get_user_item_lists_map(
+            user,
+            [tracked.item_id for tracked in tracked_episodes],
+        )
+
+        lists_by_number = {}
+        for tracked in tracked_episodes:
+            episode_number = getattr(tracked.item, "episode_number", None)
+            if episode_number is None:
+                continue
+            lists_by_number[episode_number] = lists_by_item_id.get(tracked.item_id, [])
+
+        return lists_by_number
 
     def _filter_media_params(
         self,
