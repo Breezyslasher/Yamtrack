@@ -855,7 +855,8 @@ class MediaManager(models.Manager):
             params["user"] = user
         elif media_type == MediaTypes.EPISODE.value:
             params["item__season_number"] = season_number
-            params["item__episode_number"] = episode_number
+            if episode_number is not None:
+                params["item__episode_number"] = episode_number
             params["related_season__user"] = user
         else:
             params["user"] = user
