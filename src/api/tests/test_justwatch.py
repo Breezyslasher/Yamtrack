@@ -4,6 +4,7 @@ from django.core.cache import cache
 from django.test import override_settings
 
 from app.models import MediaTypes
+from app.providers import justwatch
 
 from .base import YamtrackApiTestCase
 
@@ -81,6 +82,65 @@ def build_justwatch_response(tmdb_id):
             },
         },
     }
+
+
+# Real JustWatch response for "Lincoln" in the US, trimmed to two titles
+JUSTWATCH_LINCOLN_RESPONSE = {
+    "data": {
+        "popularTitles": {
+            "edges": [
+                {
+                    "node": {
+                        "objectType": "MOVIE",
+                        "content": {
+                            "title": "Lincoln",
+                            "originalReleaseYear": 2012,
+                            "externalIds": {"tmdbId": "72976"},
+                        },
+                        "offers": [
+                            {
+                                "monetizationType": "RENT",
+                                "standardWebURL": "https://watch.amazon.com/detail?gti=amzn1.dv.gti.78a9f704-5cb5-2a2b-4b42-3b21e11dccf2",
+                                "retailPrice": "$3.99",
+                                "package": {"packageId": 10},
+                            },
+                            {
+                                "monetizationType": "RENT",
+                                "standardWebURL": "https://tv.apple.com/us/movie/lincoln/umc.cmc.2y2l2hb8ec0t3byecg3ez7l2y",
+                                "retailPrice": "$3.99",
+                                "package": {"packageId": 2},
+                            },
+                            {
+                                "monetizationType": "BUY",
+                                "standardWebURL": "https://www.amazon.com/dp/B00F3A7G7M",
+                                "retailPrice": "$12.68",
+                                "package": {"packageId": 50},
+                            },
+                        ],
+                    },
+                },
+                {
+                    "node": {
+                        "objectType": "MOVIE",
+                        "content": {
+                            "title": "The Lincoln Lawyer",
+                            "originalReleaseYear": 2011,
+                            "externalIds": {"tmdbId": "50348"},
+                        },
+                        "offers": [
+                            {
+                                "monetizationType": "FAST",
+                                "standardWebURL": "https://watch.sling.com/1/program/15cbd81254b4d4068e64694b80bdb8fd/watch",
+                                "retailPrice": None,
+                                "package": {"packageId": 2766},
+                            },
+                        ],
+                    },
+                },
+            ],
+        },
+    },
+}
 
 
 @patch("api.views.services.get_media_metadata", return_value=TMDB_METADATA)
@@ -178,4 +238,47 @@ class JustWatchLinksTests(YamtrackApiTestCase):
         self.assertEqual(
             payload["link"],
             "https://www.themoviedb.org/movie/72976-lincoln/watch?locale=US",
+        )
+
+    @override_settings(JUSTWATCH_ENABLED=True)
+    @patch("app.providers.justwatch.services.api_request")
+    def test_real_justwatch_response_matches_tmdb_providers(
+        self,
+        mock_request,
+        _mock_metadata,
+    ):
+        """A recorded JustWatch response should link the matching TMDB providers."""
+        mock_request.return_value = JUSTWATCH_LINCOLN_RESPONSE
+
+        response = self.get_providers()
+
+        self.assertEqual(response.status_code, 200)
+        apple = response.json()["paid"][0]
+        self.assertEqual(apple["provider_id"], 2)
+        self.assertEqual(
+            apple["link"],
+            "https://tv.apple.com/us/movie/lincoln/umc.cmc.2y2l2hb8ec0t3byecg3ez7l2y",
+        )
+        self.assertEqual(apple["rent_price"], "$3.99")
+        self.assertIsNone(apple["buy_price"])
+        # Netflix has no JustWatch offer for this title
+        self.assertIsNone(response.json()["no_charge"][0]["link"])
+
+    def test_fast_offers_count_as_no_charge(self, _mock_metadata):
+        """FAST offers should give the no charge link and no price."""
+        offers = justwatch.process_offers(
+            JUSTWATCH_LINCOLN_RESPONSE["data"]["popularTitles"]["edges"][1]["node"][
+                "offers"
+            ],
+        )
+
+        self.assertEqual(
+            offers,
+            {
+                2766: {
+                    "link": "https://watch.sling.com/1/program/15cbd81254b4d4068e64694b80bdb8fd/watch",
+                    "buy_price": None,
+                    "rent_price": None,
+                },
+            },
         )

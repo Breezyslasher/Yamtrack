@@ -63,7 +63,8 @@ OBJECT_TYPES = {
     MediaTypes.MOVIE.value: "MOVIE",
     MediaTypes.TV.value: "SHOW",
 }
-NO_CHARGE_TYPES = {"FLATRATE", "FREE", "ADS"}
+# FAST is free ad supported streaming, like the TMDB "ads" type
+NO_CHARGE_TYPES = {"FLATRATE", "FREE", "ADS", "FAST"}
 PAID_TYPES = {"BUY", "RENT"}
 
 
