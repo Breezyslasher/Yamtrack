@@ -1,0 +1,21 @@
+<a {% if provider.link %}href="{{ provider.link }}" target="_blank" rel="noopener noreferrer" title="Watch on {{ provider.provider_name }}"{% endif %}
+   class="flex items-center gap-x-3 bg-[#2a2f35] rounded-lg p-2 pr-4 {% if provider.link %}hover:bg-[#3e454d] transition-colors{% endif %}">
+  <img class="w-10 rounded-md"
+       src="{{ provider.image }}"
+       alt="{{ provider.provider_name }}" />
+  <div class="flex flex-col">
+    <span class="text-sm font-medium text-gray-200">{{ provider.provider_name }}</span>
+    {% if show_prices %}
+      {% if provider.rent_price or provider.buy_price %}
+        <span class="text-xs text-gray-400">
+          {% if provider.rent_price %}Rent {{ provider.rent_price }}{% endif %}
+          {% if provider.rent_price and provider.buy_price %}·{% endif %}
+          {% if provider.buy_price %}Buy {{ provider.buy_price }}{% endif %}
+        </span>
+      {% endif %}
+    {% endif %}
+  </div>
+  {% if provider.link %}
+    {% include "app/icons/external-link.svg" with classes="w-4 h-4 text-gray-400" %}
+  {% endif %}
+</a>

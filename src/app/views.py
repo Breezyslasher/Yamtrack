@@ -342,19 +342,24 @@ def media_details(request, source, media_type, media_id, title):  # noqa: ARG001
                     )
                 )
 
-    if media_type in ["tv", "movie"]:
-        watch_providers = tmdb.filter_providers(
-            media_metadata.get("providers"), request.user.watch_provider_region
+    watch_providers = None
+    paid_providers = []
+    region = request.user.watch_provider_region
+    if media_type in ["tv", "movie"] and region:
+        # Same grouping as the API: no charge (flatrate, free, ads) and paid
+        grouped = api_helpers.group_watch_providers(
+            media_metadata.get("providers"),
+            region,
         )
+        watch_providers = grouped["no_charge"]
+        paid_providers = grouped["paid"]
         justwatch.add_links(
-            watch_providers,
+            [*watch_providers, *paid_providers],
             media_type,
             media_id,
             media_metadata.get("title"),
-            request.user.watch_provider_region,
+            region,
         )
-    else:
-        watch_providers = None
 
     context = {
         "media": media_metadata,
@@ -363,6 +368,7 @@ def media_details(request, source, media_type, media_id, title):  # noqa: ARG001
         "user_medias": user_medias,
         "current_instance": current_instance,
         "watch_providers": watch_providers,
+        "paid_providers": paid_providers,
         "watch_provider_region": request.user.watch_provider_region,
     }
     return render(request, "app/media_details.html", context)

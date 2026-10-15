@@ -32,11 +32,28 @@ MOVIE_METADATA = {
                     "display_priority": 1,
                 },
             ],
+            "rent": [
+                {
+                    "provider_id": 2,
+                    "provider_name": "Apple TV",
+                    "logo_path": "/apple.jpg",
+                    "display_priority": 4,
+                },
+            ],
+            "buy": [
+                {
+                    "provider_id": 2,
+                    "provider_name": "Apple TV",
+                    "logo_path": "/apple.jpg",
+                    "display_priority": 4,
+                },
+            ],
         },
     },
 }
 
 NETFLIX_LINK = "https://www.netflix.com/title/70218188"
+APPLE_LINK = "https://tv.apple.com/us/movie/lincoln/umc.cmc.2y2l2hb8ec0t3byecg3ez7l2y"
 
 
 # Return a copy like the cache does, as the view adds the links to the providers
@@ -111,3 +128,38 @@ class JustWatchStreamingSectionTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Netflix")
         self.assertNotContains(response, "Watch on Netflix")
+
+    @override_settings(JUSTWATCH_ENABLED=True)
+    @patch(
+        "app.views.justwatch.get_offers",
+        return_value={
+            2: {"link": APPLE_LINK, "buy_price": "$12.68", "rent_price": "$3.99"},
+        },
+    )
+    def test_rent_or_buy_row_shows_links_and_prices(self, _mock_offers, _mock):
+        """Paid providers should be listed with their JustWatch link and prices."""
+        response = self.client.get(self.details_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Rent or buy")
+        self.assertContains(response, f'href="{APPLE_LINK}"')
+        self.assertContains(response, "Rent $3.99")
+        self.assertContains(response, "Buy $12.68")
+
+    @override_settings(JUSTWATCH_ENABLED=False)
+    def test_rent_or_buy_row_without_justwatch(self, mock_metadata):
+        """Paid providers are shown without links or prices when disabled."""
+        metadata = copy.deepcopy(MOVIE_METADATA)
+        metadata["providers"]["US"].pop("flatrate")
+        mock_metadata.side_effect = None
+        mock_metadata.return_value = metadata
+
+        response = self.client.get(self.details_url)
+
+        self.assertEqual(response.status_code, 200)
+        # The streaming section is shown with only paid providers
+        self.assertContains(response, ">Streaming</h2>")
+        self.assertContains(response, "Rent or buy")
+        self.assertContains(response, "Apple TV")
+        self.assertNotContains(response, "Watch on Apple TV")
+        self.assertNotContains(response, "Rent $")

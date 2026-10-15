@@ -705,7 +705,7 @@
 
         {# Streaming providers #}
         {% if media_type == MediaTypes.MOVIE.value or media_type == MediaTypes.TV.value %}
-          {% if watch_provider_region == "UNSET" or watch_providers %}
+          {% if watch_provider_region == "UNSET" or watch_providers or paid_providers %}
             <section class="mb-8" x-show="tab === 'overview' || tab === 'streaming'">
               <h2 class="text-xl font-bold mb-4">Streaming</h2>
               {% if watch_provider_region == "UNSET" %}
@@ -716,30 +716,22 @@
                      class="text-indigo-400 hover:text-indigo-300 hover:underline">preferences</a>.
                 </p>
               {% else %}
-                <div class="flex flex-wrap gap-3">
-                  {% for provider in watch_providers %}
-                    {% if provider.link %}
-                      <a href="{{ provider.link }}"
-                         target="_blank"
-                         rel="noopener noreferrer"
-                         title="Watch on {{ provider.provider_name }}"
-                         class="flex items-center gap-x-3 bg-[#2a2f35] rounded-lg p-2 pr-4 hover:bg-[#3e454d] transition-colors">
-                        <img class="w-10 rounded-md"
-                             src="{{ provider.image }}"
-                             alt="{{ provider.provider_name }}" />
-                        <span class="text-sm font-medium text-gray-200">{{ provider.provider_name }}</span>
-                        {% include "app/icons/external-link.svg" with classes="w-4 h-4 text-gray-400" %}
-                      </a>
-                    {% else %}
-                      <div class="flex items-center gap-x-3 bg-[#2a2f35] rounded-lg p-2 pr-4">
-                        <img class="w-10 rounded-md"
-                             src="{{ provider.image }}"
-                             alt="{{ provider.provider_name }}" />
-                        <span class="text-sm font-medium text-gray-200">{{ provider.provider_name }}</span>
-                      </div>
-                    {% endif %}
-                  {% endfor %}
-                </div>
+                {% if watch_providers %}
+                  {% if paid_providers %}<h3 class="text-sm font-semibold text-gray-400 mb-2">Stream</h3>{% endif %}
+                  <div class="flex flex-wrap gap-3 {% if paid_providers %}mb-4{% endif %}">
+                    {% for provider in watch_providers %}
+                      {% include "app/components/watch_provider_card.html" with provider=provider %}
+                    {% endfor %}
+                  </div>
+                {% endif %}
+                {% if paid_providers %}
+                  <h3 class="text-sm font-semibold text-gray-400 mb-2">Rent or buy</h3>
+                  <div class="flex flex-wrap gap-3">
+                    {% for provider in paid_providers %}
+                      {% include "app/components/watch_provider_card.html" with provider=provider show_prices=True %}
+                    {% endfor %}
+                  </div>
+                {% endif %}
               {% endif %}
             </section>
           {% endif %}

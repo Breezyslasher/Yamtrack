@@ -482,6 +482,7 @@ def media_section_count(
     user_medias,
     watch_providers=None,
     watch_provider_region=None,
+    paid_providers=None,
 ):
     """Return the number of content sections on the media details page."""
     count = 0
@@ -494,7 +495,9 @@ def media_section_count(
     if media.get("episodes"):
         count += 1
     has_streaming = (
-        watch_provider_region == WATCH_PROVIDER_REGION_UNSET or watch_providers
+        watch_provider_region == WATCH_PROVIDER_REGION_UNSET
+        or watch_providers
+        or paid_providers
     )
     if (
         media.get("media_type") in (MediaTypes.MOVIE.value, MediaTypes.TV.value)
