@@ -18,7 +18,7 @@ This page outlines the environment variables used in the YamTrack project.
 | `HARDCOVER_API` | Hardcover API key for books. A default key is provided, but it's recommended to get your own as it has a low rate limit. Custom values must include the `Bearer ` prefix.                                                                              |
 | `COMICVINE_API` | ComicVine API key for comics. A default key is provided, but it's recommended to get your own as it has a low rate limit.                                                                                                                             |
 | `FANART_API`    | Fanart.tv API key for extra movie and TV artwork (posters, backgrounds and logos). Optional, no default key is provided: get one with a free [Fanart.tv](https://fanart.tv/get-an-api-key/) account.                                                  |
-| `JUSTWATCH_ENABLED`| Default to `False`. Set to `True` to add direct links and buy or rent prices to the watch providers API endpoint, using JustWatch's unofficial API. It can stop working without notice, in which case providers are returned without links.           |
+| `JUSTWATCH_ENABLED`| Default to `False`. Set to `True` to get the watch providers from JustWatch's unofficial API, with direct links and buy or rent prices, on the media details page and the watch providers API endpoint. It can stop working without notice, in which case the TMDB providers are shown without links.|
 
 ## Media Import
 

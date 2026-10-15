@@ -66,7 +66,7 @@
     - [x] PUT: Add tracked item to specific list
 - [x] `/api/v1/media/{media_type}/{source}/{media_id}/providers/`
     - [x] GET: Get where to watch a movie or tv serie (no charge and paid providers)
-        - Each provider has a direct `link` and `buy_price` / `rent_price` from JustWatch when `JUSTWATCH_ENABLED` is set.
+        - When `JUSTWATCH_ENABLED` is set and JustWatch has the media, the providers come from JustWatch (more up to date than TMDB), each with a direct `link` and `buy_price` / `rent_price`. Physical media stores are left out.
 - [x] `/api/v1/media/{media_type}/{source}/{media_id}/recommendations/`
     - [x] GET: Get recommendations based on tracked item
 - [x] `/api/v1/media/{media_type}/{source}/{media_id}/seasons/`

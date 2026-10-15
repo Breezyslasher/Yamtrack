@@ -351,10 +351,9 @@ def media_details(request, source, media_type, media_id, title):  # noqa: ARG001
             media_metadata.get("providers"),
             region,
         )
-        watch_providers = grouped["no_charge"]
-        paid_providers = grouped["paid"]
-        justwatch.add_links(
-            [*watch_providers, *paid_providers],
+        watch_providers, paid_providers = justwatch.apply_offers(
+            grouped["no_charge"],
+            grouped["paid"],
             media_type,
             media_id,
             media_metadata.get("title"),

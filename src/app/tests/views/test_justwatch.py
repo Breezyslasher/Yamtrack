@@ -53,6 +53,22 @@ MOVIE_METADATA = {
 }
 
 NETFLIX_LINK = "https://www.netflix.com/title/70218188"
+PLEX_LINK = "https://watch.plex.tv/movie/lincoln"
+
+
+def build_offer(link, *, no_charge=False, rent_price=None, buy_price=None):
+    """Build a processed JustWatch offer."""
+    return {
+        "provider_name": "JustWatch name",
+        "image": "https://images.justwatch.com/icon/1/s100/icon.png",
+        "link": link,
+        "buy_price": buy_price,
+        "rent_price": rent_price,
+        "no_charge": no_charge,
+        "paid": bool(rent_price or buy_price),
+    }
+
+
 APPLE_LINK = "https://tv.apple.com/us/movie/lincoln/umc.cmc.2y2l2hb8ec0t3byecg3ez7l2y"
 
 
@@ -85,22 +101,30 @@ class JustWatchStreamingSectionTests(TestCase):
     @override_settings(JUSTWATCH_ENABLED=True)
     @patch(
         "app.views.justwatch.get_offers",
-        return_value={8: {"link": NETFLIX_LINK, "buy_price": None, "rent_price": None}},
+        return_value={
+            8: build_offer(NETFLIX_LINK, no_charge=True),
+            538: {
+                **build_offer(PLEX_LINK, no_charge=True),
+                "provider_name": "Plex",
+            },
+        },
     )
-    def test_streaming_providers_link_to_justwatch_offers(
+    def test_streaming_providers_come_from_justwatch_offers(
         self,
         mock_offers,
         _mock_metadata,
     ):
-        """Providers with a JustWatch offer should link to the media."""
+        """JustWatch offers should replace the TMDB providers, with links."""
         response = self.client.get(self.details_url)
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, f'href="{NETFLIX_LINK}"')
         self.assertContains(response, 'title="Watch on Netflix"')
-        # Providers without an offer are still shown, without a link
-        self.assertContains(response, "Disney Plus")
-        self.assertNotContains(response, 'title="Watch on Disney Plus"')
+        # Only on JustWatch, shown with its JustWatch name and link
+        self.assertContains(response, f'href="{PLEX_LINK}"')
+        self.assertContains(response, 'title="Watch on Plex"')
+        # Listed by TMDB but without a JustWatch offer anymore
+        self.assertNotContains(response, "Disney Plus")
         mock_offers.assert_called_once_with(
             MediaTypes.MOVIE.value,
             "72976",
@@ -133,7 +157,7 @@ class JustWatchStreamingSectionTests(TestCase):
     @patch(
         "app.views.justwatch.get_offers",
         return_value={
-            2: {"link": APPLE_LINK, "buy_price": "$12.68", "rent_price": "$3.99"},
+            2: build_offer(APPLE_LINK, rent_price="$3.99", buy_price="$12.68"),
         },
     )
     def test_rent_or_buy_row_shows_links_and_prices(self, _mock_offers, _mock):

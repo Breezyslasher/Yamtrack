@@ -468,9 +468,10 @@ def group_watch_providers(all_providers, region):
 
 
 def add_justwatch_links(providers, media_type, media_id, title):
-    """Add the JustWatch direct links and prices to the grouped providers."""
-    justwatch.add_links(
-        [*providers["no_charge"], *providers["paid"]],
+    """Update the grouped providers with the JustWatch offers, links and prices."""
+    providers["no_charge"], providers["paid"] = justwatch.apply_offers(
+        providers["no_charge"],
+        providers["paid"],
         media_type,
         media_id,
         title,

@@ -100,21 +100,58 @@ JUSTWATCH_LINCOLN_RESPONSE = {
                         "offers": [
                             {
                                 "monetizationType": "RENT",
+                                "presentationType": "SD",
                                 "standardWebURL": "https://watch.amazon.com/detail?gti=amzn1.dv.gti.78a9f704-5cb5-2a2b-4b42-3b21e11dccf2",
                                 "retailPrice": "$3.99",
-                                "package": {"packageId": 10},
-                            },
-                            {
-                                "monetizationType": "RENT",
-                                "standardWebURL": "https://tv.apple.com/us/movie/lincoln/umc.cmc.2y2l2hb8ec0t3byecg3ez7l2y",
-                                "retailPrice": "$3.99",
-                                "package": {"packageId": 2},
+                                "package": {
+                                    "packageId": 10,
+                                    "clearName": "Amazon Video",
+                                    "icon": "/icon/430997/s100/amazon.png",
+                                },
                             },
                             {
                                 "monetizationType": "BUY",
+                                "presentationType": "HD",
+                                "standardWebURL": "https://watch.amazon.com/detail?gti=amzn1.dv.gti.78a9f704-5cb5-2a2b-4b42-3b21e11dccf2",
+                                "retailPrice": "$14.99",
+                                "package": {
+                                    "packageId": 10,
+                                    "clearName": "Amazon Video",
+                                    "icon": "/icon/430997/s100/amazon.png",
+                                },
+                            },
+                            {
+                                "monetizationType": "BUY",
+                                "presentationType": "SD",
+                                "standardWebURL": "https://watch.amazon.com/detail?gti=amzn1.dv.gti.78a9f704-5cb5-2a2b-4b42-3b21e11dccf2",
+                                "retailPrice": "$12.99",
+                                "package": {
+                                    "packageId": 10,
+                                    "clearName": "Amazon Video",
+                                    "icon": "/icon/430997/s100/amazon.png",
+                                },
+                            },
+                            {
+                                "monetizationType": "RENT",
+                                "presentationType": "HD",
+                                "standardWebURL": "https://tv.apple.com/us/movie/lincoln/umc.cmc.2y2l2hb8ec0t3byecg3ez7l2y",
+                                "retailPrice": "$3.99",
+                                "package": {
+                                    "packageId": 2,
+                                    "clearName": "Apple TV Store",
+                                    "icon": "/icon/190848813/s100/itunes.png",
+                                },
+                            },
+                            {
+                                "monetizationType": "BUY",
+                                "presentationType": "DVD",
                                 "standardWebURL": "https://www.amazon.com/dp/B00F3A7G7M",
                                 "retailPrice": "$12.68",
-                                "package": {"packageId": 50},
+                                "package": {
+                                    "packageId": 50,
+                                    "clearName": "Amazon DVD / Blu-ray",
+                                    "icon": "/icon/1234/s100/amazondvdbr.png",
+                                },
                             },
                         ],
                     },
@@ -130,9 +167,14 @@ JUSTWATCH_LINCOLN_RESPONSE = {
                         "offers": [
                             {
                                 "monetizationType": "FAST",
+                                "presentationType": "HD",
                                 "standardWebURL": "https://watch.sling.com/1/program/15cbd81254b4d4068e64694b80bdb8fd/watch",
                                 "retailPrice": None,
-                                "package": {"packageId": 2766},
+                                "package": {
+                                    "packageId": 2766,
+                                    "clearName": "Sling TV Freestream",
+                                    "icon": "/icon/321/s100/slingfreestream.png",
+                                },
                             },
                         ],
                     },
@@ -246,30 +288,48 @@ class JustWatchLinksTests(YamtrackApiTestCase):
 
     @override_settings(JUSTWATCH_ENABLED=True)
     @patch("app.providers.justwatch.services.api_request")
-    def test_real_justwatch_response_matches_tmdb_providers(
+    def test_justwatch_offers_replace_tmdb_providers(
         self,
         mock_request,
         _mock_metadata,
     ):
-        """A recorded JustWatch response should link the matching TMDB providers."""
+        """JustWatch offers should replace the TMDB providers when it has the media."""
         mock_request.return_value = JUSTWATCH_LINCOLN_RESPONSE
 
         response = self.get_providers()
 
         self.assertEqual(response.status_code, 200)
-        apple = response.json()["paid"][0]
-        self.assertEqual(apple["provider_id"], 2)
+        payload = response.json()
+        # Netflix is listed by TMDB but JustWatch has no offer anymore
+        self.assertEqual(payload["no_charge"], [])
         self.assertEqual(
-            apple["link"],
-            "https://tv.apple.com/us/movie/lincoln/umc.cmc.2y2l2hb8ec0t3byecg3ez7l2y",
+            payload["paid"],
+            [
+                # Listed by TMDB, keeps its TMDB name, logo and order
+                {
+                    "provider_id": 2,
+                    "provider_name": "Apple TV",
+                    "image": "https://image.tmdb.org/t/p/w500/apple.jpg",
+                    "display_priority": 4,
+                    "link": "https://tv.apple.com/us/movie/lincoln/umc.cmc.2y2l2hb8ec0t3byecg3ez7l2y",
+                    "buy_price": None,
+                    "rent_price": "$3.99",
+                },
+                # Only on JustWatch, uses its name and icon, with the lowest price
+                {
+                    "provider_id": 10,
+                    "provider_name": "Amazon Video",
+                    "image": "https://images.justwatch.com/icon/430997/s100/amazon.png",
+                    "display_priority": 1000,
+                    "link": "https://watch.amazon.com/detail?gti=amzn1.dv.gti.78a9f704-5cb5-2a2b-4b42-3b21e11dccf2",
+                    "buy_price": "$12.99",
+                    "rent_price": "$3.99",
+                },
+            ],
         )
-        self.assertEqual(apple["rent_price"], "$3.99")
-        self.assertIsNone(apple["buy_price"])
-        # Netflix has no JustWatch offer for this title
-        self.assertIsNone(response.json()["no_charge"][0]["link"])
 
     def test_fast_offers_count_as_no_charge(self, _mock_metadata):
-        """FAST offers should give the no charge link and no price."""
+        """FAST offers should be no charge offers without price."""
         offers = justwatch.process_offers(
             JUSTWATCH_LINCOLN_RESPONSE["data"]["popularTitles"]["edges"][1]["node"][
                 "offers"
@@ -280,9 +340,20 @@ class JustWatchLinksTests(YamtrackApiTestCase):
             offers,
             {
                 2766: {
+                    "provider_name": "Sling TV Freestream",
+                    "image": "https://images.justwatch.com/icon/321/s100/slingfreestream.png",
                     "link": "https://watch.sling.com/1/program/15cbd81254b4d4068e64694b80bdb8fd/watch",
                     "buy_price": None,
                     "rent_price": None,
+                    "no_charge": True,
+                    "paid": False,
                 },
             },
         )
+
+    def test_lowest_price_handles_formats(self, _mock_metadata):
+        """Prices should compare by value, keeping the current one if unparsable."""
+        self.assertEqual(justwatch.lowest_price("$14.99", "$3.99"), "$3.99")
+        self.assertEqual(justwatch.lowest_price("3,99 €", "12,99 €"), "3,99 €")
+        self.assertEqual(justwatch.lowest_price(None, "$3.99"), "$3.99")
+        self.assertEqual(justwatch.lowest_price("$3.99", "Free"), "$3.99")
