@@ -469,19 +469,13 @@ def group_watch_providers(all_providers, region):
 
 def add_justwatch_links(providers, media_type, media_id, title):
     """Add the JustWatch direct links and prices to the grouped providers."""
-    if not justwatch.is_enabled() or not title:
-        return providers
-
-    # JustWatch is unofficial, keep the TMDB providers if it fails
-    try:
-        offers = justwatch.get_offers(media_type, media_id, title, providers["region"])
-    except Exception:
-        logger.exception("Failed to fetch JustWatch links for %s", media_id)
-        return providers
-
-    for group in ("no_charge", "paid"):
-        for provider in providers[group]:
-            provider.update(offers.get(provider["provider_id"], {}))
+    justwatch.add_links(
+        [*providers["no_charge"], *providers["paid"]],
+        media_type,
+        media_id,
+        title,
+        providers["region"],
+    )
     return providers
 
 

@@ -1,0 +1,113 @@
+import copy
+from unittest.mock import patch
+
+from django.contrib.auth import get_user_model
+from django.core.cache import cache
+from django.test import TestCase, override_settings
+from django.urls import reverse
+
+from app.models import MediaTypes, Sources
+
+MOVIE_METADATA = {
+    "media_id": "72976",
+    "title": "Lincoln",
+    "media_type": MediaTypes.MOVIE.value,
+    "source": Sources.TMDB.value,
+    "image": "https://image.tmdb.org/t/p/w500/lincoln.jpg",
+    "max_progress": 1,
+    "related": {"recommendations": []},
+    "providers": {
+        "US": {
+            "flatrate": [
+                {
+                    "provider_id": 8,
+                    "provider_name": "Netflix",
+                    "logo_path": "/netflix.jpg",
+                    "display_priority": 0,
+                },
+                {
+                    "provider_id": 337,
+                    "provider_name": "Disney Plus",
+                    "logo_path": "/disney.jpg",
+                    "display_priority": 1,
+                },
+            ],
+        },
+    },
+}
+
+NETFLIX_LINK = "https://www.netflix.com/title/70218188"
+
+
+# Return a copy like the cache does, as the view adds the links to the providers
+@patch(
+    "app.providers.services.get_media_metadata",
+    side_effect=lambda *_args, **_kwargs: copy.deepcopy(MOVIE_METADATA),
+)
+class JustWatchStreamingSectionTests(TestCase):
+    """Test the JustWatch links of the media details streaming section."""
+
+    def setUp(self):
+        """Create a user with a watch provider region and log in."""
+        cache.clear()
+        self.credentials = {"username": "test", "password": "12345"}
+        self.user = get_user_model().objects.create_user(**self.credentials)
+        self.user.watch_provider_region = "US"
+        self.user.save()
+        self.client.login(**self.credentials)
+        self.details_url = reverse(
+            "media_details",
+            kwargs={
+                "source": Sources.TMDB.value,
+                "media_type": MediaTypes.MOVIE.value,
+                "media_id": "72976",
+                "title": "lincoln",
+            },
+        )
+
+    @override_settings(JUSTWATCH_ENABLED=True)
+    @patch(
+        "app.views.justwatch.get_offers",
+        return_value={8: {"link": NETFLIX_LINK, "buy_price": None, "rent_price": None}},
+    )
+    def test_streaming_providers_link_to_justwatch_offers(
+        self,
+        mock_offers,
+        _mock_metadata,
+    ):
+        """Providers with a JustWatch offer should link to the media."""
+        response = self.client.get(self.details_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'href="{NETFLIX_LINK}"')
+        self.assertContains(response, 'title="Watch on Netflix"')
+        # Providers without an offer are still shown, without a link
+        self.assertContains(response, "Disney Plus")
+        self.assertNotContains(response, 'title="Watch on Disney Plus"')
+        mock_offers.assert_called_once_with(
+            MediaTypes.MOVIE.value,
+            "72976",
+            "Lincoln",
+            "US",
+        )
+
+    @override_settings(JUSTWATCH_ENABLED=False)
+    @patch("app.views.justwatch.get_offers")
+    def test_streaming_providers_without_justwatch(self, mock_offers, _mock):
+        """Without JustWatch, providers should be shown without links."""
+        response = self.client.get(self.details_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Netflix")
+        self.assertNotContains(response, "Watch on Netflix")
+        mock_offers.assert_not_called()
+
+    @override_settings(JUSTWATCH_ENABLED=True)
+    @patch("app.views.justwatch.get_offers", side_effect=Exception("blocked"))
+    def test_justwatch_failure_still_renders_providers(self, _mock_offers, _mock):
+        """A JustWatch failure should not break the details page."""
+        response = self.client.get(self.details_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Netflix")
+        self.assertNotContains(response, "Watch on Netflix")

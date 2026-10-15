@@ -718,12 +718,26 @@
               {% else %}
                 <div class="flex flex-wrap gap-3">
                   {% for provider in watch_providers %}
-                    <div class="flex items-center gap-x-3 bg-[#2a2f35] rounded-lg p-2 pr-4">
-                      <img class="w-10 rounded-md"
-                           src="{{ provider.image }}"
-                           alt="{{ provider.provider_name }}" />
-                      <span class="text-sm font-medium text-gray-200">{{ provider.provider_name }}</span>
-                    </div>
+                    {% if provider.link %}
+                      <a href="{{ provider.link }}"
+                         target="_blank"
+                         rel="noopener noreferrer"
+                         title="Watch on {{ provider.provider_name }}"
+                         class="flex items-center gap-x-3 bg-[#2a2f35] rounded-lg p-2 pr-4 hover:bg-[#3e454d] transition-colors">
+                        <img class="w-10 rounded-md"
+                             src="{{ provider.image }}"
+                             alt="{{ provider.provider_name }}" />
+                        <span class="text-sm font-medium text-gray-200">{{ provider.provider_name }}</span>
+                        {% include "app/icons/external-link.svg" with classes="w-4 h-4 text-gray-400" %}
+                      </a>
+                    {% else %}
+                      <div class="flex items-center gap-x-3 bg-[#2a2f35] rounded-lg p-2 pr-4">
+                        <img class="w-10 rounded-md"
+                             src="{{ provider.image }}"
+                             alt="{{ provider.provider_name }}" />
+                        <span class="text-sm font-medium text-gray-200">{{ provider.provider_name }}</span>
+                      </div>
+                    {% endif %}
                   {% endfor %}
                 </div>
               {% endif %}

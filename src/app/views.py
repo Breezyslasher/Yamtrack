@@ -32,7 +32,7 @@ from app.models import (
     Status,
     UserMessage,
 )
-from app.providers import manual, services, tmdb
+from app.providers import justwatch, manual, services, tmdb
 from app.templatetags import app_tags
 from events.models import Event
 from users.models import (
@@ -345,6 +345,13 @@ def media_details(request, source, media_type, media_id, title):  # noqa: ARG001
     if media_type in ["tv", "movie"]:
         watch_providers = tmdb.filter_providers(
             media_metadata.get("providers"), request.user.watch_provider_region
+        )
+        justwatch.add_links(
+            watch_providers,
+            media_type,
+            media_id,
+            media_metadata.get("title"),
+            request.user.watch_provider_region,
         )
     else:
         watch_providers = None

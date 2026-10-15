@@ -141,3 +141,23 @@ def process_offers(offers):
         elif monetization_type == "RENT":
             entry["rent_price"] = offer.get("retailPrice")
     return providers
+
+
+def add_links(providers, media_type, tmdb_id, title, region):
+    """Add the JustWatch link and prices to TMDB watch providers, in place.
+
+    Providers without a JustWatch offer, or all of them when JustWatch is
+    disabled or fails, are left without link.
+    """
+    if not is_enabled() or not providers or not title or not region:
+        return
+
+    # JustWatch is unofficial, keep the TMDB providers if it fails
+    try:
+        offers = get_offers(media_type, tmdb_id, title, region)
+    except Exception:
+        logger.exception("Failed to fetch JustWatch links for %s", tmdb_id)
+        return
+
+    for provider in providers:
+        provider.update(offers.get(provider.get("provider_id"), {}))
