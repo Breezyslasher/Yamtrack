@@ -184,6 +184,10 @@ class JustWatchLinksTests(YamtrackApiTestCase):
         self.assertEqual(apple["buy_price"], "$14.99")
         self.assertEqual(apple["rent_price"], "$3.99")
 
+        request_headers = mock_request.call_args.kwargs["headers"]
+        self.assertIn("Mozilla", request_headers["User-Agent"])
+        self.assertEqual(request_headers["Origin"], "https://www.justwatch.com")
+
         variables = mock_request.call_args.kwargs["params"]["variables"]
         self.assertEqual(variables["country"], "US")
         self.assertEqual(variables["searchTitlesFilter"]["searchQuery"], "Lincoln")

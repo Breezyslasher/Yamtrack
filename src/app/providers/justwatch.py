@@ -17,6 +17,16 @@ logger = logging.getLogger(__name__)
 PROVIDER = "justwatch"
 base_url = "https://apis.justwatch.com/graphql"
 
+# JustWatch rejects requests with the default python-requests user agent (403),
+# so identify like its own website does
+headers = {
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0"
+    ),
+    "Origin": "https://www.justwatch.com",
+    "Referer": "https://www.justwatch.com/",
+}
+
 # Offers are cached for a shorter time as prices and catalogs change often
 CACHE_TIMEOUT = 60 * 60 * 6
 
@@ -88,6 +98,7 @@ def get_offers(media_type, tmdb_id, title, region):
             PROVIDER,
             "POST",
             base_url,
+            headers=headers,
             params={
                 "query": search_query,
                 "variables": {
