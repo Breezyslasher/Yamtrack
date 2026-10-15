@@ -12629,11 +12629,28 @@ components:
         display_priority:
           type: integer
           nullable: true
+        link:
+          type: string
+          format: uri
+          nullable: true
+          description: Direct link to the media on the provider, from JustWatch. Null
+            unless JUSTWATCH_ENABLED is set and JustWatch has the media.
+        buy_price:
+          type: string
+          nullable: true
+          description: Formatted price to buy the media, from JustWatch.
+        rent_price:
+          type: string
+          nullable: true
+          description: Formatted price to rent the media, from JustWatch.
       required:
+      - buy_price
       - display_priority
       - image
+      - link
       - provider_id
       - provider_name
+      - rent_price
     WatchProvidersResponse:
       type: object
       description: Serializer for watch providers endpoint.

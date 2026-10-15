@@ -36,6 +36,7 @@ from app.providers import (
     fanart,
     hardcover,
     igdb,
+    justwatch,
     mal,
     mangadex,
     mangaupdates,
@@ -447,6 +448,9 @@ def group_watch_providers(all_providers, region):
                     "provider_name": provider.get("provider_name"),
                     "image": tmdb.get_image_url(provider.get("logo_path")),
                     "display_priority": provider.get("display_priority"),
+                    "link": None,
+                    "buy_price": None,
+                    "rent_price": None,
                 }
         return sorted(
             providers.values(),
@@ -461,6 +465,24 @@ def group_watch_providers(all_providers, region):
         "no_charge": merge("flatrate", "free", "ads"),
         "paid": merge("buy", "rent"),
     }
+
+
+def add_justwatch_links(providers, media_type, media_id, title):
+    """Add the JustWatch direct links and prices to the grouped providers."""
+    if not justwatch.is_enabled() or not title:
+        return providers
+
+    # JustWatch is unofficial, keep the TMDB providers if it fails
+    try:
+        offers = justwatch.get_offers(media_type, media_id, title, providers["region"])
+    except Exception:
+        logger.exception("Failed to fetch JustWatch links for %s", media_id)
+        return providers
+
+    for group in ("no_charge", "paid"):
+        for provider in providers[group]:
+            provider.update(offers.get(provider["provider_id"], {}))
+    return providers
 
 
 def check_supported_source(supported_sources, media_type, source, feature):

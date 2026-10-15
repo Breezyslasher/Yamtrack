@@ -1653,6 +1653,21 @@ class WatchProviderSerializer(serializers.Serializer):
     provider_name = serializers.CharField()
     image = serializers.URLField(allow_null=True)
     display_priority = serializers.IntegerField(allow_null=True)
+    link = serializers.URLField(
+        allow_null=True,
+        help_text=(
+            "Direct link to the media on the provider, from JustWatch. Null unless "
+            "JUSTWATCH_ENABLED is set and JustWatch has the media."
+        ),
+    )
+    buy_price = serializers.CharField(
+        allow_null=True,
+        help_text="Formatted price to buy the media, from JustWatch.",
+    )
+    rent_price = serializers.CharField(
+        allow_null=True,
+        help_text="Formatted price to rent the media, from JustWatch.",
+    )
 
 
 class WatchProvidersResponseSerializer(serializers.Serializer):

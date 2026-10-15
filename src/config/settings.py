@@ -436,6 +436,9 @@ TVDB_API = config(
     ),
 )
 
+# Unofficial, enables direct watch links from JustWatch when set
+JUSTWATCH_ENABLED = config("JUSTWATCH_ENABLED", default=False, cast=bool)
+
 # Optional, enables extra artwork from Fanart.tv when set
 FANART_API = config("FANART_API", default=secret("FANART_API_FILE", ""))
 

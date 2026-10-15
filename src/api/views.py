@@ -50,6 +50,7 @@ from .helpers import (
     MEDIA_TYPE_COMPLETE_MODEL_MAP,
     SOURCES_VALID_LIST,
     VOICE_ACTOR_LANGUAGES,
+    add_justwatch_links,
     apply_aggregated_sort,
     apply_list_sort,
     build_lists_by_item_id,
@@ -4143,7 +4144,12 @@ class MediaWatchProvidersView(drf_views.APIView):
                 status=HTTP.INTERNAL_SERVER_ERROR,
             )
 
-        providers = group_watch_providers(media_metadata.get("providers"), region)
+        providers = add_justwatch_links(
+            group_watch_providers(media_metadata.get("providers"), region),
+            media_type,
+            media_id,
+            media_metadata.get("title"),
+        )
         return Response(providers, status=HTTP.OK)
 
 
