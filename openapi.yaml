@@ -9265,6 +9265,17 @@ paths:
         description: Type of media item.
         required: true
       - in: query
+        name: quality
+        schema:
+          type: string
+          enum:
+          - 4K
+          - HD
+          - SD
+          - lowest
+        description: 'Video quality of the rent and buy prices from JustWatch, falling
+          back to the closest lower quality (default: user''s preference).'
+      - in: query
         name: region
         schema:
           type: string
@@ -12635,22 +12646,42 @@ components:
           nullable: true
           description: Direct link to the media on the provider, from JustWatch. Null
             unless JUSTWATCH_ENABLED is set and JustWatch has the media.
-        buy_price:
-          type: string
-          nullable: true
-          description: Formatted price to buy the media, from JustWatch.
         rent_price:
           type: string
           nullable: true
           description: Formatted price to rent the media, from JustWatch.
+        rent_quality:
+          type: string
+          nullable: true
+          description: Video quality (SD, HD or 4K) of the rent price.
+        buy_price:
+          type: string
+          nullable: true
+          description: Formatted price to buy the media, from JustWatch.
+        buy_quality:
+          type: string
+          nullable: true
+          description: Video quality (SD, HD or 4K) of the buy price.
+        prices:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties:
+              type: string
+          nullable: true
+          description: 'All rent and buy prices by video quality, e.g. {"rent": {"SD":
+            "$3.99", "HD": "$3.99"}, "buy": {"HD": "$14.99"}}.'
       required:
       - buy_price
+      - buy_quality
       - display_priority
       - image
       - link
+      - prices
       - provider_id
       - provider_name
       - rent_price
+      - rent_quality
     WatchProvidersResponse:
       type: object
       description: Serializer for watch providers endpoint.

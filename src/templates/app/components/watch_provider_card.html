@@ -8,9 +8,15 @@
     {% if show_prices %}
       {% if provider.rent_price or provider.buy_price %}
         <span class="text-xs text-gray-400">
-          {% if provider.rent_price %}Rent {{ provider.rent_price }}{% endif %}
+          {% if provider.rent_price %}
+            Rent {{ provider.rent_price }}
+            {% if provider.rent_quality %}({{ provider.rent_quality }}){% endif %}
+          {% endif %}
           {% if provider.rent_price and provider.buy_price %}·{% endif %}
-          {% if provider.buy_price %}Buy {{ provider.buy_price }}{% endif %}
+          {% if provider.buy_price %}
+            Buy {{ provider.buy_price }}
+            {% if provider.buy_quality %}({{ provider.buy_quality }}){% endif %}
+          {% endif %}
         </span>
       {% endif %}
     {% endif %}

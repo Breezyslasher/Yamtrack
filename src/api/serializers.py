@@ -1660,13 +1660,29 @@ class WatchProviderSerializer(serializers.Serializer):
             "JUSTWATCH_ENABLED is set and JustWatch has the media."
         ),
     )
+    rent_price = serializers.CharField(
+        allow_null=True,
+        help_text="Formatted price to rent the media, from JustWatch.",
+    )
+    rent_quality = serializers.CharField(
+        allow_null=True,
+        help_text="Video quality (SD, HD or 4K) of the rent price.",
+    )
     buy_price = serializers.CharField(
         allow_null=True,
         help_text="Formatted price to buy the media, from JustWatch.",
     )
-    rent_price = serializers.CharField(
+    buy_quality = serializers.CharField(
         allow_null=True,
-        help_text="Formatted price to rent the media, from JustWatch.",
+        help_text="Video quality (SD, HD or 4K) of the buy price.",
+    )
+    prices = serializers.DictField(
+        child=serializers.DictField(child=serializers.CharField()),
+        allow_null=True,
+        help_text=(
+            "All rent and buy prices by video quality, e.g. "
+            '{"rent": {"SD": "$3.99", "HD": "$3.99"}, "buy": {"HD": "$14.99"}}.'
+        ),
     )
 
 

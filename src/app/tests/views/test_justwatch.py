@@ -56,16 +56,15 @@ NETFLIX_LINK = "https://www.netflix.com/title/70218188"
 PLEX_LINK = "https://watch.plex.tv/movie/lincoln"
 
 
-def build_offer(link, *, no_charge=False, rent_price=None, buy_price=None):
-    """Build a processed JustWatch offer."""
+def build_offer(link, *, no_charge=False, rent=None, buy=None):
+    """Build a processed JustWatch offer, with prices by quality."""
     return {
         "provider_name": "JustWatch name",
         "image": "https://images.justwatch.com/icon/1/s100/icon.png",
         "link": link,
-        "buy_price": buy_price,
-        "rent_price": rent_price,
         "no_charge": no_charge,
-        "paid": bool(rent_price or buy_price),
+        "paid": bool(rent or buy),
+        "prices": {"rent": rent or {}, "buy": buy or {}},
     }
 
 
@@ -157,7 +156,11 @@ class JustWatchStreamingSectionTests(TestCase):
     @patch(
         "app.views.justwatch.get_offers",
         return_value={
-            2: build_offer(APPLE_LINK, rent_price="$3.99", buy_price="$12.68"),
+            2: build_offer(
+                APPLE_LINK,
+                rent={"SD": "$2.99", "HD": "$3.99"},
+                buy={"HD": "$12.68"},
+            ),
         },
     )
     def test_rent_or_buy_row_shows_links_and_prices(self, _mock_offers, _mock):
@@ -167,8 +170,17 @@ class JustWatchStreamingSectionTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Rent or buy")
         self.assertContains(response, f'href="{APPLE_LINK}"')
-        self.assertContains(response, "Rent $3.99")
+        # Lowest price by default, with its quality
+        self.assertContains(response, "Rent $2.99")
+        self.assertContains(response, "(SD)")
         self.assertContains(response, "Buy $12.68")
+
+        # The user's preferred quality is used when set
+        self.user.watch_price_quality = "HD"
+        self.user.save()
+        response = self.client.get(self.details_url)
+        self.assertContains(response, "Rent $3.99")
+        self.assertNotContains(response, "Rent $2.99")
 
     @override_settings(JUSTWATCH_ENABLED=False)
     def test_rent_or_buy_row_without_justwatch(self, mock_metadata):

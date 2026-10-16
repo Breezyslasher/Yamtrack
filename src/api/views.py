@@ -33,7 +33,7 @@ from app.statistics import (
 from events import tasks
 from events.models import Event
 from lists.models import CustomList, CustomListItem
-from users.models import MediaStatusChoices
+from users.models import MediaStatusChoices, WatchPriceQualityChoices
 
 from .authentication import APIKeyAuthentication, BearerAuthentication
 from .changes_history_processor import (
@@ -107,6 +107,7 @@ from .schemas import (
     SourceCompleteParam,
     TooManyRequestsResponse,
     VoiceActorLanguageParam,
+    WatchPriceQualityParam,
     WatchProviderRegionParam,
 )
 from .serializers import (
@@ -4059,6 +4060,7 @@ class MediaWatchProvidersView(drf_views.APIView):
             SourceCompleteParam,
             MediaIdParam,
             WatchProviderRegionParam,
+            WatchPriceQualityParam,
         ],
         responses={
             200: OpenApiResponse(
@@ -4129,6 +4131,18 @@ class MediaWatchProvidersView(drf_views.APIView):
         if err:
             return err
 
+        quality = request.GET.get("quality") or request.user.watch_price_quality
+        if quality not in WatchPriceQualityChoices.values:
+            return Response(
+                {
+                    "detail": (
+                        "quality must be one of: "
+                        f"{', '.join(WatchPriceQualityChoices.values)}."
+                    ),
+                },
+                status=HTTP.BAD_REQUEST,
+            )
+
         try:
             media_metadata = services.get_media_metadata(media_type, media_id, source)
         except Exception as e:  # noqa: BLE001
@@ -4145,6 +4159,7 @@ class MediaWatchProvidersView(drf_views.APIView):
             media_type,
             media_id,
             media_metadata.get("title"),
+            quality,
         )
         return Response(providers, status=HTTP.OK)
 

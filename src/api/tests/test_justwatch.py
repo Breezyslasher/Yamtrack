@@ -312,8 +312,11 @@ class JustWatchLinksTests(YamtrackApiTestCase):
                     "image": "https://image.tmdb.org/t/p/w500/apple.jpg",
                     "display_priority": 4,
                     "link": "https://tv.apple.com/us/movie/lincoln/umc.cmc.2y2l2hb8ec0t3byecg3ez7l2y",
-                    "buy_price": None,
                     "rent_price": "$3.99",
+                    "rent_quality": "HD",
+                    "buy_price": None,
+                    "buy_quality": None,
+                    "prices": {"rent": {"HD": "$3.99"}, "buy": {}},
                 },
                 # Only on JustWatch, uses its name and icon, with the lowest price
                 {
@@ -322,8 +325,14 @@ class JustWatchLinksTests(YamtrackApiTestCase):
                     "image": "https://images.justwatch.com/icon/430997/s100/amazon.png",
                     "display_priority": 1000,
                     "link": "https://watch.amazon.com/detail?gti=amzn1.dv.gti.78a9f704-5cb5-2a2b-4b42-3b21e11dccf2",
-                    "buy_price": "$12.99",
                     "rent_price": "$3.99",
+                    "rent_quality": "SD",
+                    "buy_price": "$12.99",
+                    "buy_quality": "SD",
+                    "prices": {
+                        "rent": {"SD": "$3.99"},
+                        "buy": {"HD": "$14.99", "SD": "$12.99"},
+                    },
                 },
             ],
         )
@@ -343,10 +352,9 @@ class JustWatchLinksTests(YamtrackApiTestCase):
                     "provider_name": "Sling TV Freestream",
                     "image": "https://images.justwatch.com/icon/321/s100/slingfreestream.png",
                     "link": "https://watch.sling.com/1/program/15cbd81254b4d4068e64694b80bdb8fd/watch",
-                    "buy_price": None,
-                    "rent_price": None,
                     "no_charge": True,
                     "paid": False,
+                    "prices": {"rent": {}, "buy": {}},
                 },
             },
         )
@@ -357,3 +365,70 @@ class JustWatchLinksTests(YamtrackApiTestCase):
         self.assertEqual(justwatch.lowest_price("3,99 €", "12,99 €"), "3,99 €")
         self.assertEqual(justwatch.lowest_price(None, "$3.99"), "$3.99")
         self.assertEqual(justwatch.lowest_price("$3.99", "Free"), "$3.99")
+
+    @override_settings(JUSTWATCH_ENABLED=True)
+    @patch("app.providers.justwatch.services.api_request")
+    def test_quality_param_picks_price_quality(self, mock_request, _mock_metadata):
+        """The quality parameter should pick the price quality with fallback."""
+        mock_request.return_value = JUSTWATCH_LINCOLN_RESPONSE
+
+        hd = self.call_api(
+            "get",
+            "api_media_providers",
+            args=(MediaTypes.MOVIE.value, "tmdb", "72976"),
+            params={"region": "US", "quality": "HD"},
+            headers=self.auth_headers,
+        )
+        uhd = self.call_api(
+            "get",
+            "api_media_providers",
+            args=(MediaTypes.MOVIE.value, "tmdb", "72976"),
+            params={"region": "US", "quality": "4K"},
+            headers=self.auth_headers,
+        )
+
+        amazon_hd = hd.json()["paid"][1]
+        self.assertEqual(amazon_hd["buy_price"], "$14.99")
+        self.assertEqual(amazon_hd["buy_quality"], "HD")
+        # Amazon only rents in SD, so HD falls back to it
+        self.assertEqual(amazon_hd["rent_price"], "$3.99")
+        self.assertEqual(amazon_hd["rent_quality"], "SD")
+        # No 4K offer, so 4K falls back to HD
+        self.assertEqual(uhd.json()["paid"][1]["buy_quality"], "HD")
+
+    @override_settings(JUSTWATCH_ENABLED=True)
+    @patch("app.providers.justwatch.services.api_request")
+    def test_quality_defaults_to_user_preference(self, mock_request, _mock):
+        """Without the parameter, the user's preference should be used."""
+        mock_request.return_value = JUSTWATCH_LINCOLN_RESPONSE
+        self.user1.watch_price_quality = "HD"
+        self.user1.save()
+
+        response = self.get_providers()
+
+        self.assertEqual(response.json()["paid"][1]["buy_price"], "$14.99")
+
+    def test_invalid_quality_returns_bad_request(self, _mock_metadata):
+        """An unknown quality should be rejected."""
+        response = self.call_api(
+            "get",
+            "api_media_providers",
+            args=(MediaTypes.MOVIE.value, "tmdb", "72976"),
+            params={"region": "US", "quality": "8K"},
+            headers=self.auth_headers,
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_pick_price_fallbacks(self, _mock_metadata):
+        """Prices should fall back to lower, then higher qualities."""
+        prices = {"SD": "$9.99", "HD": "$14.99"}
+
+        self.assertEqual(justwatch.pick_price(prices, "lowest"), ("$9.99", "SD"))
+        self.assertEqual(justwatch.pick_price(prices, "HD"), ("$14.99", "HD"))
+        self.assertEqual(justwatch.pick_price(prices, "4K"), ("$14.99", "HD"))
+        self.assertEqual(
+            justwatch.pick_price({"HD": "$14.99"}, "SD"),
+            ("$14.99", "HD"),
+        )
+        self.assertEqual(justwatch.pick_price({}, "HD"), (None, None))

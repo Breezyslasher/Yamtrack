@@ -358,6 +358,7 @@ def media_details(request, source, media_type, media_id, title):  # noqa: ARG001
             media_id,
             media_metadata.get("title"),
             region,
+            quality=request.user.watch_price_quality,
         )
 
     context = {

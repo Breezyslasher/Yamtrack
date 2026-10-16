@@ -337,3 +337,15 @@ VoiceActorLanguageParam = OpenApiParameter(
         "hungarian",
     ],
 )
+
+WatchPriceQualityParam = OpenApiParameter(
+    name="quality",
+    type=OpenApiTypes.STR,
+    location=OpenApiParameter.QUERY,
+    description=(
+        "Video quality of the rent and buy prices from JustWatch, falling back "
+        "to the closest lower quality (default: user's preference)."
+    ),
+    required=False,
+    enum=["lowest", "SD", "HD", "4K"],
+)

@@ -449,8 +449,11 @@ def group_watch_providers(all_providers, region):
                     "image": tmdb.get_image_url(provider.get("logo_path")),
                     "display_priority": provider.get("display_priority"),
                     "link": None,
-                    "buy_price": None,
                     "rent_price": None,
+                    "rent_quality": None,
+                    "buy_price": None,
+                    "buy_quality": None,
+                    "prices": None,
                 }
         return sorted(
             providers.values(),
@@ -467,7 +470,7 @@ def group_watch_providers(all_providers, region):
     }
 
 
-def add_justwatch_links(providers, media_type, media_id, title):
+def add_justwatch_links(providers, media_type, media_id, title, quality):
     """Update the grouped providers with the JustWatch offers, links and prices."""
     providers["no_charge"], providers["paid"] = justwatch.apply_offers(
         providers["no_charge"],
@@ -476,6 +479,7 @@ def add_justwatch_links(providers, media_type, media_id, title):
         media_id,
         title,
         providers["region"],
+        quality=quality,
     )
     return providers
 
