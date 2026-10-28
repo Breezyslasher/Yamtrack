@@ -1699,6 +1699,22 @@ class WatchProvidersResponseSerializer(serializers.Serializer):
     paid = WatchProviderSerializer(many=True)
 
 
+class WatchProviderListItemSerializer(serializers.Serializer):
+    """Serializer for a provider of the watch provider list."""
+
+    provider_id = serializers.IntegerField()
+    provider_name = serializers.CharField()
+    image = serializers.URLField(allow_null=True)
+    display_priority = serializers.IntegerField(allow_null=True)
+
+
+class WatchProviderListResponseSerializer(serializers.Serializer):
+    """Serializer for the watch provider list endpoint."""
+
+    region = serializers.CharField()
+    results = WatchProviderListItemSerializer(many=True)
+
+
 class TimelineItemSerializer(serializers.ModelSerializer):
     """Compact serializer used for timeline entries to reduce payload size."""
 

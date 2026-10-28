@@ -75,6 +75,16 @@ query GetSearchTitles(
 }
 """
 
+packages_query = """
+query GetPackages($country: Country!, $platform: Platform!) {
+  packages(country: $country, platform: $platform, includeAddons: true) {
+    packageId
+    clearName
+    icon(profile: S100, format: PNG)
+  }
+}
+"""
+
 OBJECT_TYPES = {
     MediaTypes.MOVIE.value: "MOVIE",
     MediaTypes.TV.value: "SHOW",
@@ -127,6 +137,42 @@ def get_offers(media_type, tmdb_id, title, region):
         )
         node = find_title(response, tmdb_id)
         data = process_offers(node["offers"]) if node else {}
+        cache.set(cache_key, data, CACHE_TIMEOUT)
+
+    return data
+
+
+def get_packages(region):
+    """Return every JustWatch provider (package) of a region, keyed by provider ID.
+
+    JustWatch package IDs are the TMDB provider IDs. Each provider has its
+    `provider_name` and `image`.
+    """
+    cache_key = f"{PROVIDER}_packages_{region}"
+    data = cache.get(cache_key)
+
+    if data is None:
+        response = services.api_request(
+            PROVIDER,
+            "POST",
+            base_url,
+            headers=headers,
+            params={
+                "query": packages_query,
+                "variables": {"country": region, "platform": "WEB"},
+            },
+        )
+        packages = (response.get("data") or {}).get("packages") or []
+        data = {
+            package["packageId"]: {
+                "provider_name": package.get("clearName"),
+                "image": f"{images_url}{package['icon']}"
+                if package.get("icon")
+                else None,
+            }
+            for package in packages
+            if package.get("packageId") is not None and package.get("clearName")
+        }
         cache.set(cache_key, data, CACHE_TIMEOUT)
 
     return data

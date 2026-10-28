@@ -484,6 +484,37 @@ def add_justwatch_links(providers, media_type, media_id, title, quality):
     return providers
 
 
+def list_watch_providers(region):
+    """Return every watch provider of a region from TMDB and JustWatch.
+
+    TMDB providers keep their order. When JustWatch is enabled, its providers
+    that TMDB doesn't list follow them; JustWatch failures are ignored.
+    """
+    providers = [dict(provider) for provider in tmdb.watch_providers(region)]
+    if not justwatch.is_enabled():
+        return providers
+
+    try:
+        packages = justwatch.get_packages(region)
+    except Exception:
+        logger.exception("Failed to fetch JustWatch providers for %s", region)
+        return providers
+
+    known = {provider["provider_id"] for provider in providers}
+    for order, (provider_id, package) in enumerate(packages.items()):
+        if provider_id in known:
+            continue
+        providers.append(
+            {
+                "provider_id": provider_id,
+                "provider_name": package["provider_name"],
+                "image": package["image"],
+                "display_priority": 1000 + order,
+            },
+        )
+    return providers
+
+
 def check_supported_source(supported_sources, media_type, source, feature):
     """Return an error response if the media type or source is not supported."""
     if media_type not in supported_sources:

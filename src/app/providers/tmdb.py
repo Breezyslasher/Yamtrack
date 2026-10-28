@@ -1223,6 +1223,54 @@ def watch_provider_regions():
     return data
 
 
+def watch_providers(region):
+    """Return every watch provider TMDB lists for a region, movies and tv merged.
+
+    Each provider has its `provider_id`, `provider_name`, `image` and the
+    `display_priority` for the region, sorted by that priority.
+    """
+    cache_key = f"{Sources.TMDB.value}_watch_providers_{region}"
+    data = cache.get(cache_key)
+
+    if data is None:
+        providers = {}
+        for media_type in (MediaTypes.MOVIE.value, MediaTypes.TV.value):
+            try:
+                response = services.api_request(
+                    Sources.TMDB.value,
+                    "GET",
+                    f"{base_url}/watch/providers/{media_type}",
+                    params={**base_params, "watch_region": region},
+                )
+            except requests.exceptions.HTTPError as error:
+                handle_error(error)
+
+            for provider in response.get("results", []):
+                provider_id = provider.get("provider_id")
+                if provider_id is None or provider_id in providers:
+                    continue
+                priorities = provider.get("display_priorities") or {}
+                providers[provider_id] = {
+                    "provider_id": provider_id,
+                    "provider_name": provider.get("provider_name"),
+                    "image": get_image_url(provider.get("logo_path")),
+                    "display_priority": priorities.get(
+                        region,
+                        provider.get("display_priority"),
+                    ),
+                }
+
+        data = sorted(
+            providers.values(),
+            key=lambda e: (
+                e["display_priority"] if e["display_priority"] is not None else 999
+            ),
+        )
+        cache.set(cache_key, data)
+
+    return data
+
+
 def get_changed_ids(media_type):
     """Return changed TMDB ids for the given media type over the last days."""
     url = f"{base_url}/{media_type}/changes"

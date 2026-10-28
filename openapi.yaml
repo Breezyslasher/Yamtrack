@@ -10258,6 +10258,82 @@ paths:
                   summary: Internal server error
                   description: Internal server error
           description: Internal server error
+  /api/v1/providers/:
+    get:
+      operationId: providers_get
+      description: List the watch providers of a region from TMDB and JustWatch.
+      summary: List every watch provider of a region
+      parameters:
+      - in: query
+        name: region
+        schema:
+          type: string
+        description: 'ISO 3166-1 country code to get watch providers for (default:
+          user''s watch provider region).'
+      tags:
+      - providers
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WatchProviderListResponse'
+              examples:
+                ListWatchProvidersExample:
+                  value:
+                    region: US
+                    results:
+                    - provider_id: 8
+                      provider_name: Netflix
+                      image: https://image.tmdb.org/t/p/w500/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg
+                      display_priority: 0
+                  summary: List watch providers example
+                  description: List watch providers example
+          description: Successful response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+              examples:
+                InvalidRequestExample:
+                  value:
+                    detail: Invalid request.
+                  summary: Invalid request example
+                  description: Invalid request example
+          description: Bad request
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+              examples:
+                NoAuthenticationExample:
+                  value:
+                    detail: Authentication credentials were not provided.
+                  summary: No authentication example
+                  description: No authentication example
+                InvalidTokenExample:
+                  value:
+                    detail: Invalid token
+                  summary: Invalid token example
+                  description: Invalid token example
+          description: Forbidden
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+              examples:
+                InternalServerErrorExample:
+                  value:
+                    detail: Internal server error.
+                  summary: Internal server error
+                  description: Internal server error
+          description: Internal server error
   /api/v1/search/{media_type}/:
     get:
       operationId: search_get
@@ -12682,6 +12758,39 @@ components:
       - provider_name
       - rent_price
       - rent_quality
+    WatchProviderListItem:
+      type: object
+      description: Serializer for a provider of the watch provider list.
+      properties:
+        provider_id:
+          type: integer
+        provider_name:
+          type: string
+        image:
+          type: string
+          format: uri
+          nullable: true
+        display_priority:
+          type: integer
+          nullable: true
+      required:
+      - display_priority
+      - image
+      - provider_id
+      - provider_name
+    WatchProviderListResponse:
+      type: object
+      description: Serializer for the watch provider list endpoint.
+      properties:
+        region:
+          type: string
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/WatchProviderListItem'
+      required:
+      - region
+      - results
     WatchProvidersResponse:
       type: object
       description: Serializer for watch providers endpoint.

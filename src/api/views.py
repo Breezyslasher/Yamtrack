@@ -72,6 +72,7 @@ from .helpers import (
     get_sorts,
     get_timeline,
     group_watch_providers,
+    list_watch_providers,
     paginate_data,
     parse_excluded_items,
     parse_limit_offset,
@@ -160,6 +161,7 @@ from .serializers import (
     UpdateMovieSerializer,
     UpdateSeasonSerializer,
     UpdateTVSerializer,
+    WatchProviderListResponseSerializer,
     WatchProvidersResponseSerializer,
 )
 
@@ -8867,6 +8869,66 @@ class PersonKnownForView(drf_views.APIView):
 
         paginated = paginate_data(request, known_for, limit, offset)
         return Response(PaginatedKnownForSerializer(paginated).data, status=HTTP.OK)
+
+
+# /api/v1/providers/
+class WatchProviderListView(drf_views.APIView):
+    """Watch provider list view."""
+
+    authentication_classes = [BearerAuthentication, APIKeyAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = WatchProviderListResponseSerializer
+
+    @extend_schema(
+        operation_id="providers_get",
+        summary="List every watch provider of a region",
+        parameters=[WatchProviderRegionParam],
+        responses={
+            200: OpenApiResponse(
+                WatchProviderListResponseSerializer,
+                description="Successful response",
+                examples=[
+                    OpenApiExample(
+                        "List watch providers example",
+                        description="List watch providers example",
+                        summary="List watch providers example",
+                        value={
+                            "region": "US",
+                            "results": [
+                                {
+                                    "provider_id": 8,
+                                    "provider_name": "Netflix",
+                                    "image": "https://image.tmdb.org/t/p/w500/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg",
+                                    "display_priority": 0,
+                                },
+                            ],
+                        },
+                    )
+                ],
+            ),
+            400: BadRequestResponse,
+            403: ForbiddenResponse,
+            500: InternalServerErrorResponse,
+        },
+    )
+    def get(self, request):
+        """List the watch providers of a region from TMDB and JustWatch."""
+        region, err = parse_watch_provider_region(request)
+        if err:
+            return err
+
+        try:
+            providers = list_watch_providers(region)
+        except Exception as e:  # noqa: BLE001
+            return Response(
+                {
+                    "detail": HTTP.INTERNAL_SERVER_ERROR.phrase,
+                    "errors": str(e),
+                },
+                status=HTTP.INTERNAL_SERVER_ERROR,
+            )
+
+        return Response({"region": region, "results": providers}, status=HTTP.OK)
 
 
 # /api/v1/search/[media_type]/
