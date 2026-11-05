@@ -32,7 +32,7 @@ from app.models import (
     Status,
     UserMessage,
 )
-from app.providers import manual, services, tmdb
+from app.providers import justwatch, manual, services, tmdb
 from app.templatetags import app_tags
 from events.models import Event
 from users.models import (
@@ -342,12 +342,24 @@ def media_details(request, source, media_type, media_id, title):  # noqa: ARG001
                     )
                 )
 
-    if media_type in ["tv", "movie"]:
-        watch_providers = tmdb.filter_providers(
-            media_metadata.get("providers"), request.user.watch_provider_region
+    watch_providers = None
+    paid_providers = []
+    region = request.user.watch_provider_region
+    if media_type in ["tv", "movie"] and region:
+        # Same grouping as the API: no charge (flatrate, free, ads) and paid
+        grouped = api_helpers.group_watch_providers(
+            media_metadata.get("providers"),
+            region,
         )
-    else:
-        watch_providers = None
+        watch_providers, paid_providers = justwatch.apply_offers(
+            grouped["no_charge"],
+            grouped["paid"],
+            media_type,
+            media_id,
+            media_metadata.get("title"),
+            region,
+            quality=request.user.watch_price_quality,
+        )
 
     context = {
         "media": media_metadata,
@@ -356,6 +368,7 @@ def media_details(request, source, media_type, media_id, title):  # noqa: ARG001
         "user_medias": user_medias,
         "current_instance": current_instance,
         "watch_providers": watch_providers,
+        "paid_providers": paid_providers,
         "watch_provider_region": request.user.watch_provider_region,
     }
     return render(request, "app/media_details.html", context)

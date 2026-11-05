@@ -20,6 +20,7 @@ from users.models import (
     DateFormatChoices,
     QuickWatchDateChoices,
     TimeFormatChoices,
+    WatchPriceQualityChoices,
     WeekStartDayChoices,
 )
 
@@ -233,6 +234,8 @@ def preferences(request):
                 "time_format_choices": TimeFormatChoices.choices,
                 "week_start_day_choices": WeekStartDayChoices.choices,
                 "watch_provider_choices": watch_provider_regions,
+                "watch_price_quality_choices": WatchPriceQualityChoices.choices,
+                "justwatch_enabled": settings.JUSTWATCH_ENABLED,
             },
         )
 
@@ -271,6 +274,10 @@ def preferences(request):
         request.user.watch_provider_region = provider_region
     else:
         request.user.watch_provider_region = WATCH_PROVIDER_REGION_UNSET
+
+    price_quality = request.POST.get("watch_price_quality")
+    if price_quality in WatchPriceQualityChoices.values:
+        request.user.watch_price_quality = price_quality
 
     # Update user preferences for each media type
     for media_type in media_types:

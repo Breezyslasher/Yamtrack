@@ -41,6 +41,7 @@ from app.providers import (
     fanart,
     hardcover,
     igdb,
+    justwatch,
     mal,
     mangadex,
     mangaupdates,
@@ -53,6 +54,7 @@ from users.models import (
     WATCH_PROVIDER_REGION_UNSET,
     MediaSortChoices,
     MediaStatusChoices,
+    WatchPriceQualityChoices,
 )
 
 logger = logging.getLogger(__name__)
@@ -577,6 +579,12 @@ def group_watch_providers(all_providers, region):
                     "provider_name": provider.get("provider_name"),
                     "image": tmdb.get_image_url(provider.get("logo_path")),
                     "display_priority": provider.get("display_priority"),
+                    "link": None,
+                    "rent_price": None,
+                    "rent_quality": None,
+                    "buy_price": None,
+                    "buy_quality": None,
+                    "prices": None,
                 }
         return sorted(
             providers.values(),
@@ -591,6 +599,51 @@ def group_watch_providers(all_providers, region):
         "no_charge": merge("flatrate", "free", "ads"),
         "paid": merge("buy", "rent"),
     }
+
+
+def add_justwatch_links(providers, media_type, media_id, title, quality):
+    """Update the grouped providers with the JustWatch offers, links and prices."""
+    providers["no_charge"], providers["paid"] = justwatch.apply_offers(
+        providers["no_charge"],
+        providers["paid"],
+        media_type,
+        media_id,
+        title,
+        providers["region"],
+        quality=quality,
+    )
+    return providers
+
+
+def list_watch_providers(region):
+    """Return every watch provider of a region from TMDB and JustWatch.
+
+    TMDB providers keep their order. When JustWatch is enabled, its providers
+    that TMDB doesn't list follow them; JustWatch failures are ignored.
+    """
+    providers = [dict(provider) for provider in tmdb.watch_providers(region)]
+    if not justwatch.is_enabled():
+        return providers
+
+    try:
+        packages = justwatch.get_packages(region)
+    except Exception:
+        logger.exception("Failed to fetch JustWatch providers for %s", region)
+        return providers
+
+    known = {provider["provider_id"] for provider in providers}
+    for order, (provider_id, package) in enumerate(packages.items()):
+        if provider_id in known:
+            continue
+        providers.append(
+            {
+                "provider_id": provider_id,
+                "provider_name": package["provider_name"],
+                "image": package["image"],
+                "display_priority": 1000 + order,
+            },
+        )
+    return providers
 
 
 def check_supported_source(supported_sources, media_type, source, feature):
@@ -1206,6 +1259,29 @@ def parse_watch_provider_region(request):
         )
 
     return region.upper(), None
+
+
+def parse_watch_price_quality(request):
+    """Parse the watch price quality, falling back to the user's preference.
+
+    If no error, error_response is None. On validation error, returns a DRF Response.
+    """
+    quality = request.GET.get("quality") or request.user.watch_price_quality
+    if quality not in WatchPriceQualityChoices.values:
+        return (
+            None,
+            Response(
+                {
+                    "detail": (
+                        "quality must be one of: "
+                        f"{', '.join(WatchPriceQualityChoices.values)}."
+                    ),
+                },
+                status=HTTP.BAD_REQUEST,
+            ),
+        )
+
+    return quality, None
 
 
 def parse_status_param(status):

@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - "feat/add-api"
+      - "feat/justwatch-links"
 
 env:
   REGISTRY: ghcr.io
@@ -43,8 +44,10 @@ jobs:
         uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # Each branch publishes its own tag so they never overwrite each other
           tags: |
-            type=raw,value=api
+            type=raw,value=api,enable=${{ github.ref_name == 'feat/add-api' }}
+            type=raw,value=justwatch,enable=${{ github.ref_name == 'feat/justwatch-links' }}
 
       - name: Log into registry ${{ env.REGISTRY }}
         uses: docker/login-action@v4

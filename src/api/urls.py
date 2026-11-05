@@ -239,6 +239,11 @@ urlpatterns = [
         name="api_person_known_for",
     ),
     re_path(
+        r"^providers/?$",
+        views.WatchProviderListView.as_view(),
+        name="api_providers",
+    ),
+    re_path(
         r"^search/(?P<media_type>[^/]+)/?$",
         views.SearchProviderView.as_view(),
         name="api_search_provider",

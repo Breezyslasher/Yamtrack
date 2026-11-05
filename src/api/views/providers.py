@@ -4,11 +4,14 @@ from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import views as drf_views
 from rest_framework.response import Response
 
-from api.examples import WATCH_PROVIDERS_EXAMPLE
+from api.examples import WATCH_PROVIDER_LIST_EXAMPLE, WATCH_PROVIDERS_EXAMPLE
 from api.helpers import (
+    add_justwatch_links,
     check_valid_type,
     error_response,
     group_watch_providers,
+    list_watch_providers,
+    parse_watch_price_quality,
     parse_watch_provider_region,
 )
 from api.schemas import (
@@ -18,9 +21,13 @@ from api.schemas import (
     NotFoundResponse,
     SeasonNumberParam,
     SourceCompleteParam,
+    WatchPriceQualityParam,
     WatchProviderRegionParam,
 )
-from api.serializers import WatchProvidersResponseSerializer
+from api.serializers import (
+    WatchProviderListResponseSerializer,
+    WatchProvidersResponseSerializer,
+)
 from app.models import MediaTypes, Sources
 from app.providers import services
 
@@ -39,6 +46,7 @@ class MediaWatchProvidersView(drf_views.APIView):
             SourceCompleteParam,
             MediaIdParam,
             WatchProviderRegionParam,
+            WatchPriceQualityParam,
         ],
         responses={
             200: OpenApiResponse(
@@ -81,6 +89,10 @@ class MediaWatchProvidersView(drf_views.APIView):
         if err:
             return err
 
+        quality, err = parse_watch_price_quality(request)
+        if err:
+            return err
+
         try:
             media_metadata = services.get_media_metadata(media_type, media_id, source)
         except Exception as e:  # noqa: BLE001
@@ -88,7 +100,13 @@ class MediaWatchProvidersView(drf_views.APIView):
                 HTTP.INTERNAL_SERVER_ERROR.phrase, HTTP.INTERNAL_SERVER_ERROR, e
             )
 
-        providers = group_watch_providers(media_metadata.get("providers"), region)
+        providers = add_justwatch_links(
+            group_watch_providers(media_metadata.get("providers"), region),
+            media_type,
+            media_id,
+            media_metadata.get("title"),
+            quality,
+        )
         return Response(providers, status=HTTP.OK)
 
 
@@ -160,3 +178,38 @@ class MediaSeasonWatchProvidersView(drf_views.APIView):
 
         providers = group_watch_providers(season_metadata.get("providers"), region)
         return Response(providers, status=HTTP.OK)
+
+
+# /api/v1/providers/
+class WatchProviderListView(drf_views.APIView):
+    """Watch provider list view."""
+
+    serializer_class = WatchProviderListResponseSerializer
+
+    @extend_schema(
+        operation_id="providers_get",
+        summary="List every watch provider of a region",
+        parameters=[WatchProviderRegionParam],
+        responses={
+            200: OpenApiResponse(
+                WatchProviderListResponseSerializer,
+                description="Successful response",
+                examples=[WATCH_PROVIDER_LIST_EXAMPLE],
+            ),
+            400: BadRequestResponse,
+        },
+    )
+    def get(self, request):
+        """List the watch providers of a region from TMDB and JustWatch."""
+        region, err = parse_watch_provider_region(request)
+        if err:
+            return err
+
+        try:
+            providers = list_watch_providers(region)
+        except Exception as e:  # noqa: BLE001
+            return error_response(
+                HTTP.INTERNAL_SERVER_ERROR.phrase, HTTP.INTERNAL_SERVER_ERROR, e
+            )
+
+        return Response({"region": region, "results": providers}, status=HTTP.OK)

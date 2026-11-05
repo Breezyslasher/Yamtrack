@@ -1,5 +1,5 @@
 {% load app_tags %}
-{% media_section_count media user_medias watch_providers watch_provider_region as section_count %}
+{% media_section_count media user_medias watch_providers watch_provider_region paid_providers as section_count %}
 {% if section_count > 1 %}
   <nav class="flex gap-x-6 overflow-x-auto scrollbar-hide border-b border-[#2c3136] {{ extra_classes }}">
     <button @click="tab = 'overview'"
@@ -49,7 +49,7 @@
     {% endif %}
 
     {% if media_type == MediaTypes.MOVIE.value or media_type == MediaTypes.TV.value %}
-      {% if watch_provider_region == "UNSET" or watch_providers %}
+      {% if watch_provider_region == "UNSET" or watch_providers or paid_providers %}
         <button @click="tab = 'streaming'"
                 class="pb-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors duration-200 cursor-pointer"
                 :class="tab === 'streaming' ? 'text-white border-indigo-500' : 'text-gray-400 border-transparent hover:text-white'">

@@ -66,6 +66,7 @@
     - [x] PUT: Add tracked item to specific list
 - [x] `/api/v1/media/{media_type}/{source}/{media_id}/providers/`
     - [x] GET: Get where to watch a movie or tv serie (no charge and paid providers)
+        - When `JUSTWATCH_ENABLED` is set and JustWatch has the media, the providers come from JustWatch (more up to date than TMDB), each with a direct `link` and `buy_price` / `rent_price`. Physical media stores are left out. Prices follow the user's price quality preference or the `quality` parameter (`lowest`, `SD`, `HD`, `4K`).
 - [x] `/api/v1/media/{media_type}/{source}/{media_id}/recommendations/`
     - [x] GET: Get recommendations based on tracked item
 - [x] `/api/v1/media/{media_type}/{source}/{media_id}/seasons/`
@@ -130,6 +131,9 @@
     - [x] GET: Get profile images of a person
 - [x] `/api/v1/people/{source}/{person_id}/known_for/`
     - [x] GET: Get movies and tv series a person is known for as cast or crew, optionally filtered by `media_type` (`movie` or `tv`) and `department`
+- [x] `/api/v1/providers/`
+    - [x] GET: List every watch provider of a region (`region` query parameter, default: user's watch provider region), with icons, sorted by display priority
+        - When `JUSTWATCH_ENABLED` is set, providers only JustWatch lists are added after TMDB's
 - [x] `/api/v1/search/{media_type}/`
     - [x] GET: Search for media using the specified provider
 - [x] `/api/v1/statistics/`

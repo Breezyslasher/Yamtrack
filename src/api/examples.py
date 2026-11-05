@@ -560,6 +560,12 @@ WATCH_PROVIDERS_EXAMPLE = _example(
                 "provider_name": "Netflix",
                 "image": "https://image.tmdb.org/t/p/w500/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg",
                 "display_priority": 0,
+                "link": "https://www.netflix.com/title/20557937",
+                "rent_price": None,
+                "rent_quality": None,
+                "buy_price": None,
+                "buy_quality": None,
+                "prices": None,
             },
         ],
         "paid": [
@@ -568,6 +574,15 @@ WATCH_PROVIDERS_EXAMPLE = _example(
                 "provider_name": "Apple TV",
                 "image": "https://image.tmdb.org/t/p/w500/9ghgSC0MA082EL6HLCW3GalykFD.jpg",
                 "display_priority": 4,
+                "link": "https://tv.apple.com/us/movie/the-matrix/umc.cmc.1fcm4ui9ibn5pbk1jcuqnszmx",
+                "rent_price": "$3.99",
+                "rent_quality": "SD",
+                "buy_price": "$14.99",
+                "buy_quality": "HD",
+                "prices": {
+                    "rent": {"SD": "$3.99", "HD": "$3.99", "4K": "$3.99"},
+                    "buy": {"HD": "$14.99", "4K": "$14.99"},
+                },
             },
         ],
     },
@@ -887,5 +902,20 @@ TRACKED_EPISODE_EXAMPLE = _example(
         "end_date": "2026-05-11T00:00:00Z",
         "notes": None,
         "lists": [],
+    },
+)
+
+WATCH_PROVIDER_LIST_EXAMPLE = _example(
+    "Watch provider list",
+    {
+        "region": "US",
+        "results": [
+            {
+                "provider_id": 8,
+                "provider_name": "Netflix",
+                "image": "https://image.tmdb.org/t/p/w500/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg",
+                "display_priority": 0,
+            },
+        ],
     },
 )

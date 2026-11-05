@@ -117,6 +117,15 @@ class WeekStartDayChoices(models.TextChoices):
     SUNDAY = "sunday", "Sunday"
 
 
+class WatchPriceQualityChoices(models.TextChoices):
+    """Choices for the video quality of the watch provider prices."""
+
+    LOWEST = "lowest", "Lowest price"
+    SD = "SD", "SD"
+    HD = "HD", "HD"
+    UHD = "4K", "4K"
+
+
 class User(AbstractUser):
     """Custom user model."""
 
@@ -366,6 +375,14 @@ class User(AbstractUser):
         max_length=5,
         default=WATCH_PROVIDER_REGION_UNSET,
         help_text="Region to show watch providers for",
+    )
+
+    # Video quality of the rent and buy prices from JustWatch
+    watch_price_quality = models.CharField(
+        max_length=10,
+        default=WatchPriceQualityChoices.LOWEST,
+        choices=WatchPriceQualityChoices.choices,
+        help_text="Video quality to show rent and buy prices for",
     )
 
     # Calendar preferences

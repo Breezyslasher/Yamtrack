@@ -53,6 +53,7 @@ from .people import (
 from .providers import (
     MediaSeasonWatchProvidersView,
     MediaWatchProvidersView,
+    WatchProviderListView,
 )
 from .search import (
     SearchProviderView,
@@ -128,4 +129,5 @@ __all__ = [
     "PersonKnownForView",
     "SearchProviderView",
     "StatisticsView",
+    "WatchProviderListView",
 ]
