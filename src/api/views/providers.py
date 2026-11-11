@@ -8,7 +8,6 @@ from api.examples import WATCH_PROVIDER_LIST_EXAMPLE, WATCH_PROVIDERS_EXAMPLE
 from api.helpers import (
     add_justwatch_links,
     check_valid_type,
-    error_response,
     group_watch_providers,
     list_watch_providers,
     parse_watch_price_quality,
@@ -85,20 +84,10 @@ class MediaWatchProvidersView(drf_views.APIView):
                 status=HTTP.BAD_REQUEST,
             )
 
-        region, err = parse_watch_provider_region(request)
-        if err:
-            return err
+        region = parse_watch_provider_region(request)
+        quality = parse_watch_price_quality(request)
 
-        quality, err = parse_watch_price_quality(request)
-        if err:
-            return err
-
-        try:
-            media_metadata = services.get_media_metadata(media_type, media_id, source)
-        except Exception as e:  # noqa: BLE001
-            return error_response(
-                HTTP.INTERNAL_SERVER_ERROR.phrase, HTTP.INTERNAL_SERVER_ERROR, e
-            )
+        media_metadata = services.get_media_metadata(media_type, media_id, source)
 
         providers = add_justwatch_links(
             group_watch_providers(media_metadata.get("providers"), region),
@@ -160,21 +149,14 @@ class MediaSeasonWatchProvidersView(drf_views.APIView):
                 status=HTTP.BAD_REQUEST,
             )
 
-        region, err = parse_watch_provider_region(request)
-        if err:
-            return err
+        region = parse_watch_provider_region(request)
 
-        try:
-            season_metadata = services.get_media_metadata(
-                MediaTypes.SEASON.value,
-                media_id,
-                source,
-                [season_number],
-            )
-        except Exception as e:  # noqa: BLE001
-            return error_response(
-                HTTP.INTERNAL_SERVER_ERROR.phrase, HTTP.INTERNAL_SERVER_ERROR, e
-            )
+        season_metadata = services.get_media_metadata(
+            MediaTypes.SEASON.value,
+            media_id,
+            source,
+            [season_number],
+        )
 
         providers = group_watch_providers(season_metadata.get("providers"), region)
         return Response(providers, status=HTTP.OK)
@@ -201,15 +183,6 @@ class WatchProviderListView(drf_views.APIView):
     )
     def get(self, request):
         """List the watch providers of a region from TMDB and JustWatch."""
-        region, err = parse_watch_provider_region(request)
-        if err:
-            return err
-
-        try:
-            providers = list_watch_providers(region)
-        except Exception as e:  # noqa: BLE001
-            return error_response(
-                HTTP.INTERNAL_SERVER_ERROR.phrase, HTTP.INTERNAL_SERVER_ERROR, e
-            )
-
+        region = parse_watch_provider_region(request)
+        providers = list_watch_providers(region)
         return Response({"region": region, "results": providers}, status=HTTP.OK)

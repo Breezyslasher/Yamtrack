@@ -50,6 +50,10 @@ from .people import (
     PersonImagesView,
     PersonKnownForView,
 )
+from .profiles import (
+    UserMediaTypeListView,
+    UserProfileView,
+)
 from .providers import (
     MediaSeasonWatchProvidersView,
     MediaWatchProvidersView,
@@ -75,6 +79,14 @@ from .system import (
     HealthView,
     InfoView,
 )
+from .users import (
+    MePasswordView,
+    MePreferencesView,
+    MeSearchCacheView,
+    MeTokenView,
+    MeView,
+    MeWebUIPreferencesView,
+)
 
 __all__ = [
     "CalendarUpdateView",
@@ -85,6 +97,12 @@ __all__ = [
     "ListItemView",
     "ListItemsView",
     "ListsView",
+    "MePasswordView",
+    "MePreferencesView",
+    "MeSearchCacheView",
+    "MeTokenView",
+    "MeView",
+    "MeWebUIPreferencesView",
     "MediaCastView",
     "MediaChangesHistoryView",
     "MediaCharactersView",
@@ -129,5 +147,7 @@ __all__ = [
     "PersonKnownForView",
     "SearchProviderView",
     "StatisticsView",
+    "UserMediaTypeListView",
+    "UserProfileView",
     "WatchProviderListView",
 ]
