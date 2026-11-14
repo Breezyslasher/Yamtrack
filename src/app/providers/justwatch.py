@@ -9,6 +9,7 @@ JustWatch has the media its offers replace the TMDB providers.
 """
 
 import logging
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from django.conf import settings
 from django.core.cache import cache
@@ -69,6 +70,14 @@ query GetSearchTitles(
             icon(profile: S100, format: PNG)
           }
         }
+        atv: offers(country: $country, platform: ANDROID_TV, filter: $filter) {
+          monetizationType
+          presentationType
+          deeplinkURL(platform: ANDROID_TV)
+          package {
+            packageId
+          }
+        }
       }
     }
   }
@@ -98,6 +107,8 @@ QUALITY_ORDER = ["SD", "HD", "4K"]
 # Physical media sold by stores like Amazon DVD / Blu-ray, not streaming
 PHYSICAL_PRESENTATION_TYPES = {"DVD", "BLURAY", "_4K_BLURAY"}
 images_url = "https://images.justwatch.com"
+# Schemes of the Android TV deep links that any client can open as a URL
+TV_LINK_SCHEMES = {"https", "http"}
 
 
 def is_enabled():
@@ -108,10 +119,11 @@ def is_enabled():
 def get_offers(media_type, tmdb_id, title, region):
     """Return the JustWatch offers of a movie or tv show, keyed by provider ID.
 
-    Each provider has its `link` and the `buy_price` and `rent_price` if any.
+    Each provider has its `link`, `tv_link` and the `buy_price` and
+    `rent_price` if any.
     Returns an empty dict when no JustWatch title matches the TMDB ID.
     """
-    cache_key = f"{PROVIDER}_{media_type}_{tmdb_id}_{region}_v3"
+    cache_key = f"{PROVIDER}_{media_type}_{tmdb_id}_{region}_v4"
     data = cache.get(cache_key)
 
     if data is None:
@@ -136,7 +148,7 @@ def get_offers(media_type, tmdb_id, title, region):
             },
         )
         node = find_title(response, tmdb_id)
-        data = process_offers(node["offers"]) if node else {}
+        data = process_offers(node["offers"], node.get("atv")) if node else {}
         cache.set(cache_key, data, CACHE_TIMEOUT)
 
     return data
@@ -189,11 +201,12 @@ def find_title(response, tmdb_id):
     return None
 
 
-def process_offers(offers):
+def process_offers(offers, tv_offers=None):
     """Return the providers of the JustWatch offers, keyed by provider ID.
 
-    Each provider has its name, icon, `link`, whether it is `no_charge` and/or
-    `paid`, and its rent and buy `prices` by video quality (SD, HD, 4K).
+    Each provider has its name, icon, `link`, `tv_link` (from the Android TV
+    offers), whether it is `no_charge` and/or `paid`, and its rent and buy
+    `prices` by video quality (SD, HD, 4K).
     """
     providers = {}
     for offer in offers or []:
@@ -216,6 +229,7 @@ def process_offers(offers):
                 if package.get("icon")
                 else None,
                 "link": None,
+                "tv_link": None,
                 "no_charge": False,
                 "paid": False,
                 "prices": {"rent": {}, "buy": {}},
@@ -233,7 +247,62 @@ def process_offers(offers):
             quality = QUALITIES.get(offer.get("presentationType"), "SD")
             prices = entry["prices"][monetization_type.lower()]
             prices[quality] = lowest_price(prices.get(quality), offer["retailPrice"])
+
+    add_tv_links(providers, tv_offers)
     return providers
+
+
+def add_tv_links(providers, tv_offers):
+    """Set the Android TV link of the providers from their Android TV offers."""
+    no_charge_links = set()
+    for offer in tv_offers or []:
+        package_id = (offer.get("package") or {}).get("packageId")
+        entry = providers.get(package_id)
+        link = tv_link(offer.get("deeplinkURL"))
+        if (
+            entry is None
+            or link is None
+            or offer.get("presentationType") in PHYSICAL_PRESENTATION_TYPES
+            or package_id in no_charge_links
+        ):
+            continue
+
+        # Prefer the no charge link when a provider has several offers, like `link`
+        if offer.get("monetizationType") in NO_CHARGE_TYPES:
+            entry["tv_link"] = link
+            no_charge_links.add(package_id)
+        elif offer.get("monetizationType") in PAID_TYPES:
+            entry["tv_link"] = entry["tv_link"] or link
+
+
+def tv_link(deeplink):
+    """Return the web URL of an Android TV deep link, None if it has none.
+
+    Android TV deep links are intent URIs like
+    `intent://www.disneyplus.com/play/<id>#Intent;launchFlags=0x00800000;scheme=https;end`.
+    Only http(s) links are returned, as apps' own schemes can't be opened as a
+    URL, without the `utm_*` tracking parameters.
+    """
+    if not deeplink:
+        return None
+
+    if deeplink.startswith("intent://"):
+        target, _, intent = deeplink.removeprefix("intent://").partition("#Intent;")
+        extras = dict(part.split("=", 1) for part in intent.split(";") if "=" in part)
+        scheme = extras.get("scheme", "").lower()
+        if scheme not in TV_LINK_SCHEMES or not target:
+            return None
+        deeplink = f"{scheme}://{target}"
+
+    parts = urlsplit(deeplink)
+    if parts.scheme not in TV_LINK_SCHEMES or not parts.netloc:
+        return None
+    query = [
+        (key, value)
+        for key, value in parse_qsl(parts.query, keep_blank_values=True)
+        if not key.startswith("utm_")
+    ]
+    return urlunsplit(parts._replace(query=urlencode(query)))
 
 
 def pick_price(prices, quality):
@@ -335,6 +404,7 @@ def build_providers(offers, tmdb_providers, group, quality):
                 # TMDB providers keep their order, the others follow
                 "display_priority": priority if priority is not None else 1000 + order,
                 "link": offer["link"],
+                "tv_link": offer["tv_link"],
                 **price_fields(offer["prices"], quality, paid=group == "paid"),
             },
         )

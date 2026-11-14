@@ -623,6 +623,7 @@ def group_watch_providers(all_providers, region):
                     "image": tmdb.get_image_url(provider.get("logo_path")),
                     "display_priority": provider.get("display_priority"),
                     "link": None,
+                    "tv_link": None,
                     "rent_price": None,
                     "rent_quality": None,
                     "buy_price": None,

@@ -15,6 +15,14 @@ class WatchProviderSerializer(serializers.Serializer):
             "JUSTWATCH_ENABLED is set and JustWatch has the media."
         ),
     )
+    tv_link = serializers.URLField(
+        allow_null=True,
+        help_text=(
+            "Link that starts the media in the provider's Android TV app, from "
+            "JustWatch (null if JustWatch has none). Unlike `link`, this plays the "
+            "title rather than opening a page, for apps that support it."
+        ),
+    )
     rent_price = serializers.CharField(
         allow_null=True,
         help_text="Formatted price to rent the media, from JustWatch.",

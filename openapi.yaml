@@ -7592,6 +7592,7 @@ paths:
                       image: https://image.tmdb.org/t/p/w500/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg
                       display_priority: 0
                       link: https://www.netflix.com/title/20557937
+                      tv_link: https://www.netflix.com/watch/20557937
                       rent_price: null
                       rent_quality: null
                       buy_price: null
@@ -7603,6 +7604,7 @@ paths:
                       image: https://image.tmdb.org/t/p/w500/9ghgSC0MA082EL6HLCW3GalykFD.jpg
                       display_priority: 4
                       link: https://tv.apple.com/us/movie/the-matrix/umc.cmc.1fcm4ui9ibn5pbk1jcuqnszmx
+                      tv_link: https://tv.apple.com/us/movie/the-matrix/umc.cmc.1fcm4ui9ibn5pbk1jcuqnszmx
                       rent_price: $3.99
                       rent_quality: SD
                       buy_price: $14.99
@@ -10156,6 +10158,7 @@ paths:
                       image: https://image.tmdb.org/t/p/w500/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg
                       display_priority: 0
                       link: https://www.netflix.com/title/20557937
+                      tv_link: https://www.netflix.com/watch/20557937
                       rent_price: null
                       rent_quality: null
                       buy_price: null
@@ -10167,6 +10170,7 @@ paths:
                       image: https://image.tmdb.org/t/p/w500/9ghgSC0MA082EL6HLCW3GalykFD.jpg
                       display_priority: 4
                       link: https://tv.apple.com/us/movie/the-matrix/umc.cmc.1fcm4ui9ibn5pbk1jcuqnszmx
+                      tv_link: https://tv.apple.com/us/movie/the-matrix/umc.cmc.1fcm4ui9ibn5pbk1jcuqnszmx
                       rent_price: $3.99
                       rent_quality: SD
                       buy_price: $14.99
@@ -14049,6 +14053,13 @@ components:
           nullable: true
           description: Direct link to the media on the provider, from JustWatch. Null
             unless JUSTWATCH_ENABLED is set and JustWatch has the media.
+        tv_link:
+          type: string
+          format: uri
+          nullable: true
+          description: Link that starts the media in the provider's Android TV app,
+            from JustWatch (null if JustWatch has none). Unlike `link`, this plays
+            the title rather than opening a page, for apps that support it.
         rent_price:
           type: string
           nullable: true
@@ -14085,6 +14096,7 @@ components:
       - provider_name
       - rent_price
       - rent_quality
+      - tv_link
     WatchProviderListItem:
       type: object
       description: Serializer for a provider of the watch provider list.

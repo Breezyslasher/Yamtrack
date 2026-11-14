@@ -42,8 +42,11 @@ TMDB_METADATA = {
 }
 
 
-def build_justwatch_response(tmdb_id):
-    """Build a fake JustWatch search response for a title with the TMDB ID."""
+def build_justwatch_response(tmdb_id, atv=None):
+    """Build a fake JustWatch search response for a title with the TMDB ID.
+
+    `atv` is the Android TV offers of the title.
+    """
     return {
         "data": {
             "popularTitles": {
@@ -76,6 +79,7 @@ def build_justwatch_response(tmdb_id):
                                     "package": {"packageId": 2},
                                 },
                             ],
+                            "atv": atv or [],
                         },
                     },
                 ],
@@ -185,6 +189,30 @@ JUSTWATCH_LINCOLN_RESPONSE = {
 }
 
 
+DISNEY_WEB_LINK = (
+    "https://www.disneyplus.com/browse/entity-f51dce23-7d8f-490a-9f0c-be1b5432c2a9"
+)
+HBO_WEB_LINK = "https://play.hbomax.com/show/e7dc7b3a-0f4a-4b37-9d2d-1e5d6c7b8a90"
+ANDROID_TV_OFFERS = [
+    {
+        "monetizationType": "FLATRATE",
+        "deeplinkURL": (
+            "intent://www.disneyplus.com/play/f51dce23-7d8f-490a-9f0c-be1b5432c2a9"
+            "#Intent;launchFlags=0x00800000;scheme=https;end"
+        ),
+        "package": {"packageId": 337},
+    },
+    {
+        "monetizationType": "FLATRATE",
+        "deeplinkURL": (
+            "intent://play.hbomax.com/video/watch/07323549-c382-4363-a3fe-97a365e81331"
+            "?utm_source=universal_search#Intent;launchFlags=0x00800000;scheme=https;end"
+        ),
+        "package": {"packageId": 1899},
+    },
+]
+
+
 @patch("app.providers.services.get_media_metadata", return_value=TMDB_METADATA)
 class JustWatchLinksTests(YamtrackApiTestCase):
     """Validate the JustWatch direct links of the watch providers endpoint."""
@@ -239,6 +267,57 @@ class JustWatchLinksTests(YamtrackApiTestCase):
         self.get_providers()
         mock_request.assert_called_once()
 
+    @override_settings(JUSTWATCH_ENABLED=True)
+    @patch("app.providers.justwatch.services.api_request")
+    def test_providers_include_android_tv_links(self, mock_request, _mock_metadata):
+        """Providers should get the Android TV link next to the unchanged link."""
+        response_data = build_justwatch_response("72976", atv=ANDROID_TV_OFFERS)
+        offers = response_data["data"]["popularTitles"]["edges"][0]["node"]["offers"]
+        offers.extend(
+            [
+                {
+                    "monetizationType": "FLATRATE",
+                    "standardWebURL": DISNEY_WEB_LINK,
+                    "retailPrice": None,
+                    "package": {"packageId": 337, "clearName": "Disney Plus"},
+                },
+                {
+                    "monetizationType": "FLATRATE",
+                    "standardWebURL": HBO_WEB_LINK,
+                    "retailPrice": None,
+                    "package": {"packageId": 1899, "clearName": "HBO Max"},
+                },
+            ],
+        )
+        mock_request.return_value = response_data
+
+        response = self.get_providers()
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        providers = {
+            provider["provider_id"]: provider
+            for provider in payload["no_charge"] + payload["paid"]
+        }
+        self.assertEqual(providers[337]["link"], DISNEY_WEB_LINK)
+        self.assertEqual(
+            providers[337]["tv_link"],
+            "https://www.disneyplus.com/play/f51dce23-7d8f-490a-9f0c-be1b5432c2a9",
+        )
+        self.assertEqual(providers[1899]["link"], HBO_WEB_LINK)
+        self.assertEqual(
+            providers[1899]["tv_link"],
+            "https://play.hbomax.com/video/watch/07323549-c382-4363-a3fe-97a365e81331",
+        )
+        # Links of the providers without an Android TV offer don't change
+        self.assertEqual(providers[8]["link"], "https://www.netflix.com/title/70218188")
+        self.assertIsNone(providers[8]["tv_link"])
+        self.assertEqual(providers[2]["link"], "https://tv.apple.com/movie/lincoln")
+        self.assertIsNone(providers[2]["tv_link"])
+
+        query = mock_request.call_args.kwargs["params"]["query"]
+        self.assertIn("atv: offers(country: $country, platform: ANDROID_TV", query)
+
     @override_settings(JUSTWATCH_ENABLED=False)
     @patch("app.providers.justwatch.services.api_request")
     def test_justwatch_disabled_by_default(self, mock_request, _mock_metadata):
@@ -249,6 +328,7 @@ class JustWatchLinksTests(YamtrackApiTestCase):
         for group in ("no_charge", "paid"):
             for provider in response.json()[group]:
                 self.assertIsNone(provider["link"])
+                self.assertIsNone(provider["tv_link"])
                 self.assertIsNone(provider["buy_price"])
                 self.assertIsNone(provider["rent_price"])
         mock_request.assert_not_called()
@@ -312,6 +392,7 @@ class JustWatchLinksTests(YamtrackApiTestCase):
                     "image": "https://image.tmdb.org/t/p/w500/apple.jpg",
                     "display_priority": 4,
                     "link": "https://tv.apple.com/us/movie/lincoln/umc.cmc.2y2l2hb8ec0t3byecg3ez7l2y",
+                    "tv_link": None,
                     "rent_price": "$3.99",
                     "rent_quality": "HD",
                     "buy_price": None,
@@ -325,6 +406,7 @@ class JustWatchLinksTests(YamtrackApiTestCase):
                     "image": "https://images.justwatch.com/icon/430997/s100/amazon.png",
                     "display_priority": 1000,
                     "link": "https://watch.amazon.com/detail?gti=amzn1.dv.gti.78a9f704-5cb5-2a2b-4b42-3b21e11dccf2",
+                    "tv_link": None,
                     "rent_price": "$3.99",
                     "rent_quality": "SD",
                     "buy_price": "$12.99",
@@ -352,6 +434,7 @@ class JustWatchLinksTests(YamtrackApiTestCase):
                     "provider_name": "Sling TV Freestream",
                     "image": "https://images.justwatch.com/icon/321/s100/slingfreestream.png",
                     "link": "https://watch.sling.com/1/program/15cbd81254b4d4068e64694b80bdb8fd/watch",
+                    "tv_link": None,
                     "no_charge": True,
                     "paid": False,
                     "prices": {"rent": {}, "buy": {}},

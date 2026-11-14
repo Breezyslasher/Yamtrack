@@ -62,6 +62,7 @@ def build_offer(link, *, no_charge=False, rent=None, buy=None):
         "provider_name": "JustWatch name",
         "image": "https://images.justwatch.com/icon/1/s100/icon.png",
         "link": link,
+        "tv_link": None,
         "no_charge": no_charge,
         "paid": bool(rent or buy),
         "prices": {"rent": rent or {}, "buy": buy or {}},
