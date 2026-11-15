@@ -232,6 +232,11 @@ urlpatterns = [
         name="api_media_episode_list_detail",
     ),
     re_path(
+        r"^media/(?P<media_type>[^/]+)/(?P<source>[^/]+)/(?P<media_id>[^/]+)/(?P<season_number>\d+)/(?P<episode_number>\d+)/providers/?$",
+        views.MediaEpisodeWatchProvidersView.as_view(),
+        name="api_media_episode_providers",
+    ),
+    re_path(
         r"^media/(?P<media_type>[^/]+)/(?P<source>[^/]+)/(?P<media_id>[^/]+)/(?P<season_number>\d+)/(?P<episode_number>\d+)/sync/?$",
         views.MediaEpisodeSyncView.as_view(),
         name="api_media_episode_sync",

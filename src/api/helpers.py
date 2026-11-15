@@ -659,6 +659,23 @@ def add_justwatch_links(providers, media_type, media_id, title, quality):
     return providers
 
 
+def add_justwatch_episode_links(providers, media_id, title, episode, quality):
+    """Update the grouped providers with the JustWatch offers of an episode.
+
+    `episode` is the `(season_number, episode_number)` of the tv show episode.
+    """
+    providers["no_charge"], providers["paid"] = justwatch.apply_episode_offers(
+        providers["no_charge"],
+        providers["paid"],
+        media_id,
+        title,
+        providers["region"],
+        episode=episode,
+        quality=quality,
+    )
+    return providers
+
+
 def list_watch_providers(region):
     """Return every watch provider of a region from TMDB and JustWatch.
 

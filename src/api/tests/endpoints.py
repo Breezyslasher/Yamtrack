@@ -291,6 +291,9 @@ def get_endpoint_cases() -> list[EndpointCase]:
             "api_media_episode_list_detail",
             args=("tv", "tmdb", 1, 1, 1, 1),
         ),
+        EndpointCase(
+            "get", "api_media_episode_providers", args=("tv", "tmdb", 1, 1, 1)
+        ),
         EndpointCase("post", "api_media_episode_sync", args=("tv", "tmdb", 1, 1, 1)),
         EndpointCase("get", "api_people_search"),
         EndpointCase("get", "api_person_detail", args=("tmdb", 1)),

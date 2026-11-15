@@ -515,3 +515,166 @@ class JustWatchLinksTests(YamtrackApiTestCase):
             ("$14.99", "HD"),
         )
         self.assertEqual(justwatch.pick_price({}, "HD"), (None, None))
+
+
+SEASON_METADATA = {
+    "title": "Andor",
+    "season_title": "Season 1",
+    "providers": {
+        "US": {
+            "link": "https://www.themoviedb.org/tv/83867-andor/season/1/watch?locale=US",
+            "flatrate": [
+                {
+                    "provider_id": 337,
+                    "provider_name": "Disney Plus",
+                    "logo_path": "/disney.jpg",
+                    "display_priority": 1,
+                },
+            ],
+        },
+    },
+}
+
+ANDOR_E1_LINK = "https://www.disneyplus.com/play/91310366-d44b-44a4-bdc4-71f999472826"
+
+
+def andor_responses():
+    """Return the JustWatch search, seasons and season 1 episodes responses."""
+    return [
+        {
+            "data": {
+                "popularTitles": {
+                    "edges": [
+                        {
+                            "node": {
+                                "id": "ts38796",
+                                "objectType": "SHOW",
+                                "content": {"externalIds": {"tmdbId": "83867"}},
+                                "offers": [],
+                                "atv": [],
+                            },
+                        },
+                    ],
+                },
+            },
+        },
+        {
+            "data": {
+                "node": {
+                    "seasons": [{"id": "tss62569", "content": {"seasonNumber": 1}}],
+                },
+            },
+        },
+        {
+            "data": {
+                "node": {
+                    "episodes": [
+                        {
+                            "id": "tse1",
+                            "content": {"episodeNumber": 1},
+                            "offers": [
+                                {
+                                    "monetizationType": "FLATRATE",
+                                    "presentationType": "HD",
+                                    "standardWebURL": "https://www.disneyplus.com/browse/entity-faba988a",
+                                    "deeplinkURL": ANDOR_E1_LINK,
+                                    "retailPrice": None,
+                                    "package": {
+                                        "packageId": 337,
+                                        "clearName": "Disney Plus",
+                                    },
+                                },
+                            ],
+                            "atv": [
+                                {
+                                    "monetizationType": "FLATRATE",
+                                    "deeplinkURL": (
+                                        "intent://www.disneyplus.com/play/91310366-"
+                                        "d44b-44a4-bdc4-71f999472826#Intent;"
+                                        "launchFlags=0x00800000;scheme=https;end"
+                                    ),
+                                    "package": {"packageId": 337},
+                                },
+                            ],
+                        },
+                    ],
+                },
+            },
+        },
+    ]
+
+
+@patch("app.providers.services.get_media_metadata", return_value=SEASON_METADATA)
+class JustWatchEpisodeLinksTests(YamtrackApiTestCase):
+    """Validate the watch providers endpoint of tv show episodes."""
+
+    def setUp(self):
+        """Clear cached provider data between tests."""
+        super().setUp()
+        cache.clear()
+
+    def get_providers(self, media_type=MediaTypes.TV.value, source="tmdb"):
+        """Call the episode watch providers endpoint for Andor S1E1."""
+        return self.call_api(
+            "get",
+            "api_media_episode_providers",
+            args=(media_type, source, "83867", 1, 1),
+            params={"region": "US"},
+            headers=self.auth_headers,
+        )
+
+    @override_settings(JUSTWATCH_ENABLED=True)
+    @patch("app.providers.justwatch.services.api_request")
+    def test_providers_have_the_episode_links(self, mock_request, mock_metadata):
+        """Providers should get the links that start the episode."""
+        mock_request.side_effect = andor_responses()
+
+        response = self.get_providers()
+
+        self.assertEqual(response.status_code, 200)
+        disney = response.json()["no_charge"][0]
+        self.assertEqual(disney["provider_name"], "Disney Plus")
+        self.assertEqual(disney["link"], ANDOR_E1_LINK)
+        self.assertEqual(disney["tv_link"], ANDOR_E1_LINK)
+        # The season's TMDB providers are the starting point
+        self.assertEqual(
+            mock_metadata.call_args.args, ("season", "83867", "tmdb", ["1"])
+        )
+        search = mock_request.call_args_list[0].kwargs["params"]["variables"]
+        self.assertEqual(search["searchTitlesFilter"]["searchQuery"], "Andor")
+
+    @override_settings(JUSTWATCH_ENABLED=False)
+    @patch("app.providers.justwatch.services.api_request")
+    def test_justwatch_disabled_returns_season_providers(
+        self,
+        mock_request,
+        _mock_metadata,
+    ):
+        """Without JustWatch, the season's TMDB providers have no links."""
+        response = self.get_providers()
+
+        self.assertEqual(response.status_code, 200)
+        disney = response.json()["no_charge"][0]
+        self.assertEqual(disney["provider_id"], 337)
+        self.assertIsNone(disney["link"])
+        self.assertIsNone(disney["tv_link"])
+        mock_request.assert_not_called()
+
+    @override_settings(JUSTWATCH_ENABLED=True)
+    @patch(
+        "app.providers.justwatch.services.api_request",
+        side_effect=Exception("blocked"),
+    )
+    def test_justwatch_failure_returns_season_providers(self, _mock_request, _mock):
+        """A JustWatch failure should return the season's TMDB providers."""
+        response = self.get_providers()
+
+        self.assertEqual(response.status_code, 200)
+        disney = response.json()["no_charge"][0]
+        self.assertEqual(disney["provider_id"], 337)
+        self.assertIsNone(disney["link"])
+
+    def test_only_tmdb_tv_shows_are_supported(self, _mock_metadata):
+        """Movies and other sources should be rejected."""
+        self.assertEqual(self.get_providers(MediaTypes.MOVIE.value).status_code, 400)
+        self.assertEqual(self.get_providers(source="mal").status_code, 400)

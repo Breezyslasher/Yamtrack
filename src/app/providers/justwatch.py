@@ -51,6 +51,7 @@ query GetSearchTitles(
   ) {
     edges {
       node {
+        id
         objectType
         content(country: $country, language: $language) {
           title
@@ -63,6 +64,61 @@ query GetSearchTitles(
           monetizationType
           presentationType
           standardWebURL
+          retailPrice(language: $language)
+          package {
+            packageId
+            clearName
+            icon(profile: S100, format: PNG)
+          }
+        }
+        atv: offers(country: $country, platform: ANDROID_TV, filter: $filter) {
+          monetizationType
+          presentationType
+          deeplinkURL(platform: ANDROID_TV)
+          package {
+            packageId
+          }
+        }
+      }
+    }
+  }
+}
+"""
+
+seasons_query = """
+query GetShowSeasons($id: ID!, $country: Country!, $language: Language!) {
+  node(id: $id) {
+    ... on Show {
+      seasons(sortDirection: ASC) {
+        id
+        content(country: $country, language: $language) {
+          seasonNumber
+        }
+      }
+    }
+  }
+}
+"""
+
+season_episodes_query = """
+query GetSeasonEpisodes(
+  $id: ID!,
+  $country: Country!,
+  $language: Language!,
+  $filter: OfferFilter!
+) {
+  node(id: $id) {
+    ... on Season {
+      episodes(sortDirection: ASC) {
+        id
+        content(country: $country, language: $language) {
+          episodeNumber
+        }
+        offers(country: $country, platform: WEB, filter: $filter) {
+          monetizationType
+          presentationType
+          standardWebURL
+          deeplinkURL(platform: WEB)
           retailPrice(language: $language)
           package {
             packageId
@@ -127,31 +183,116 @@ def get_offers(media_type, tmdb_id, title, region):
     data = cache.get(cache_key)
 
     if data is None:
-        language = settings.TMDB_LANG.split("-")[0]
-        response = services.api_request(
-            PROVIDER,
-            "POST",
-            base_url,
-            headers=headers,
-            params={
-                "query": search_query,
-                "variables": {
-                    "searchTitlesFilter": {
-                        "searchQuery": title,
-                        "objectTypes": [OBJECT_TYPES[media_type]],
-                    },
-                    "country": region,
-                    "language": language,
-                    "first": 10,
-                    "filter": {"bestOnly": True},
-                },
-            },
-        )
-        node = find_title(response, tmdb_id)
+        node = search_title(media_type, tmdb_id, title, region)
         data = process_offers(node["offers"], node.get("atv")) if node else {}
         cache.set(cache_key, data, CACHE_TIMEOUT)
 
     return data
+
+
+def get_episode_offers(tmdb_id, title, season_number, episode_number, region):
+    """Return the JustWatch offers of a tv show episode, keyed by provider ID.
+
+    The providers are like the ones of `get_offers`, with the episode's own
+    `link` and `tv_link`. Returns an empty dict when JustWatch doesn't have the
+    show, season or episode.
+    """
+    season_id = get_show_seasons(tmdb_id, title, region).get(int(season_number))
+    if season_id is None:
+        return {}
+
+    episodes = get_season_episodes(tmdb_id, season_number, season_id, region)
+    return episodes.get(int(episode_number), {})
+
+
+def get_show_seasons(tmdb_id, title, region):
+    """Return the JustWatch season IDs of a tv show, keyed by season number."""
+    cache_key = f"{PROVIDER}_seasons_{tmdb_id}_{region}_v1"
+    data = cache.get(cache_key)
+
+    if data is None:
+        data = {}
+        node = search_title(MediaTypes.TV.value, tmdb_id, title, region)
+        if node and node.get("id"):
+            response = graphql_request(
+                seasons_query,
+                {"id": node["id"], "country": region, "language": get_language()},
+            )
+            show = (response.get("data") or {}).get("node") or {}
+            for season in show.get("seasons") or []:
+                number = (season.get("content") or {}).get("seasonNumber")
+                if number is not None and season.get("id"):
+                    data[number] = season["id"]
+        cache.set(cache_key, data, CACHE_TIMEOUT)
+
+    return data
+
+
+def get_season_episodes(tmdb_id, season_number, season_id, region):
+    """Return the offers of a JustWatch season's episodes, keyed by episode number.
+
+    The whole season is cached, so the other episodes need no request.
+    """
+    cache_key = f"{PROVIDER}_episodes_{tmdb_id}_{season_number}_{region}_v1"
+    data = cache.get(cache_key)
+
+    if data is None:
+        response = graphql_request(
+            season_episodes_query,
+            {
+                "id": season_id,
+                "country": region,
+                "language": get_language(),
+                "filter": {"bestOnly": True},
+            },
+        )
+        season = (response.get("data") or {}).get("node") or {}
+        data = {}
+        for episode in season.get("episodes") or []:
+            number = (episode.get("content") or {}).get("episodeNumber")
+            if number is not None:
+                data[number] = process_offers(
+                    episode.get("offers"),
+                    episode.get("atv"),
+                    episode=True,
+                )
+        cache.set(cache_key, data, CACHE_TIMEOUT)
+
+    return data
+
+
+def search_title(media_type, tmdb_id, title, region):
+    """Return the JustWatch title of the search matching the TMDB ID, if any."""
+    response = graphql_request(
+        search_query,
+        {
+            "searchTitlesFilter": {
+                "searchQuery": title,
+                "objectTypes": [OBJECT_TYPES[media_type]],
+            },
+            "country": region,
+            "language": get_language(),
+            "first": 10,
+            "filter": {"bestOnly": True},
+        },
+    )
+    return find_title(response, tmdb_id)
+
+
+def graphql_request(query, variables):
+    """Send a query to the JustWatch GraphQL API."""
+    return services.api_request(
+        PROVIDER,
+        "POST",
+        base_url,
+        headers=headers,
+        params={"query": query, "variables": variables},
+    )
+
+
+def get_language():
+    """Return the language of the JustWatch texts, from the TMDB language."""
+    return settings.TMDB_LANG.split("-")[0]
 
 
 def get_packages(region):
@@ -201,21 +342,23 @@ def find_title(response, tmdb_id):
     return None
 
 
-def process_offers(offers, tv_offers=None):
+def process_offers(offers, tv_offers=None, *, episode=False):
     """Return the providers of the JustWatch offers, keyed by provider ID.
 
     Each provider has its name, icon, `link`, `tv_link` (from the Android TV
     offers), whether it is `no_charge` and/or `paid`, and its rent and buy
-    `prices` by video quality (SD, HD, 4K).
+    `prices` by video quality (SD, HD, 4K). With `episode`, the links are the
+    ones of an episode, see `offer_link` and `add_episode_tv_links`.
     """
     providers = {}
     for offer in offers or []:
         package = offer.get("package") or {}
         package_id = package.get("packageId")
         monetization_type = offer.get("monetizationType")
+        link = offer_link(offer, episode=episode)
         if (
             package_id is None
-            or not offer.get("standardWebURL")
+            or not link
             or offer.get("presentationType") in PHYSICAL_PRESENTATION_TYPES
             or monetization_type not in NO_CHARGE_TYPES | PAID_TYPES
         ):
@@ -238,18 +381,46 @@ def process_offers(offers, tv_offers=None):
         # Prefer the no charge link when a provider has several offers
         if monetization_type in NO_CHARGE_TYPES:
             entry["no_charge"] = True
-            entry["link"] = offer["standardWebURL"]
+            entry["link"] = link
             continue
 
         entry["paid"] = True
-        entry["link"] = entry["link"] or offer["standardWebURL"]
+        entry["link"] = entry["link"] or link
         if offer.get("retailPrice"):
             quality = QUALITIES.get(offer.get("presentationType"), "SD")
             prices = entry["prices"][monetization_type.lower()]
             prices[quality] = lowest_price(prices.get(quality), offer["retailPrice"])
 
     add_tv_links(providers, tv_offers)
+    if episode:
+        add_episode_tv_links(providers)
     return providers
+
+
+def offer_link(offer, *, episode=False):
+    """Return the web link of an offer.
+
+    The standard web URL of an episode is often the show's page, while its web
+    deep link plays the episode, so episodes use the deep link when it is a URL.
+    """
+    if episode:
+        deeplink = offer.get("deeplinkURL")
+        if deeplink and urlsplit(deeplink).scheme in TV_LINK_SCHEMES:
+            return deeplink
+    return offer.get("standardWebURL")
+
+
+def add_episode_tv_links(providers):
+    """Use the episode's web link as the Android TV link of Netflix.
+
+    The Netflix Android TV deep link of an episode is the show's, while its web
+    deep link is the episode's `/watch/<id>`, which the Android TV app also
+    opens. Netflix is matched by its link, so every Netflix plan is covered.
+    """
+    for entry in providers.values():
+        parts = urlsplit(entry["link"] or "")
+        if parts.netloc == "www.netflix.com" and parts.path.startswith("/watch/"):
+            entry["tv_link"] = tv_link(entry["link"])
 
 
 def add_tv_links(providers, tv_offers):
@@ -365,12 +536,51 @@ def apply_offers(
     when JustWatch is disabled or fails, the TMDB providers are returned as is.
     Rent and buy prices are shown for the given video quality.
     """
-    if not is_enabled() or not title or not region:
+    if not title or not region:
+        return no_charge, paid
+
+    return replace_providers(
+        no_charge,
+        paid,
+        lambda: get_offers(media_type, tmdb_id, title, region),
+        tmdb_id,
+        quality,
+    )
+
+
+def apply_episode_offers(no_charge, paid, tmdb_id, title, region, *, episode, quality):
+    """Return the providers of a tv show episode updated with JustWatch.
+
+    Like `apply_offers`, with the offers of the `(season_number, episode_number)`
+    episode, whose links start it.
+    """
+    if not title or not region:
+        return no_charge, paid
+
+    season_number, episode_number = episode
+    return replace_providers(
+        no_charge,
+        paid,
+        lambda: get_episode_offers(
+            tmdb_id,
+            title,
+            season_number,
+            episode_number,
+            region,
+        ),
+        tmdb_id,
+        quality,
+    )
+
+
+def replace_providers(no_charge, paid, fetch_offers, tmdb_id, quality):
+    """Replace the TMDB providers by the JustWatch offers that `fetch_offers` gets."""
+    if not is_enabled():
         return no_charge, paid
 
     # JustWatch is unofficial, keep the TMDB providers if it fails
     try:
-        offers = get_offers(media_type, tmdb_id, title, region)
+        offers = fetch_offers()
     except Exception:
         logger.exception("Failed to fetch JustWatch providers for %s", tmdb_id)
         return no_charge, paid

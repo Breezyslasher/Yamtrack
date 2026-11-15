@@ -55,6 +55,7 @@ from .profiles import (
     UserProfileView,
 )
 from .providers import (
+    MediaEpisodeWatchProvidersView,
     MediaSeasonWatchProvidersView,
     MediaWatchProvidersView,
     WatchProviderListView,
@@ -120,6 +121,7 @@ __all__ = [
     "MediaEpisodeListDetailView",
     "MediaEpisodeListsView",
     "MediaEpisodeSyncView",
+    "MediaEpisodeWatchProvidersView",
     "MediaImagesView",
     "MediaListDetailView",
     "MediaListView",

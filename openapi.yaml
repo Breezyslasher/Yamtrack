@@ -5601,6 +5601,182 @@ paths:
                   summary: Internal server error
                   description: Internal server error
           description: Internal server error
+  /api/v1/media/{media_type}/{source}/{media_id}/{season_number}/{episode_number}/providers/:
+    get:
+      operationId: episode_providers_get
+      description: TMDB has no providers per episode, so these are the season's, replaced
+        by the JustWatch offers of the episode, whose links start it, when JUSTWATCH_ENABLED
+        is set.
+      summary: Get episode watch providers
+      parameters:
+      - in: path
+        name: episode_number
+        schema:
+          type: integer
+        description: Episode number for the specified media item.
+        required: true
+      - in: path
+        name: media_id
+        schema:
+          type: string
+        description: ID of the media item.
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          enum:
+          - anime
+          - boardgame
+          - book
+          - comic
+          - game
+          - manga
+          - movie
+          - tv
+        description: Type of media item.
+        required: true
+      - in: query
+        name: quality
+        schema:
+          type: string
+          enum:
+          - 4K
+          - HD
+          - SD
+          - lowest
+        description: 'Video quality of the rent and buy prices from JustWatch, falling
+          back to the closest lower quality (default: user''s preference).'
+      - in: query
+        name: region
+        schema:
+          type: string
+        description: 'ISO 3166-1 country code to get watch providers for (default:
+          user''s watch provider region).'
+      - in: path
+        name: season_number
+        schema:
+          type: integer
+        description: Season number for the specified media item.
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          enum:
+          - bgg
+          - comicvine
+          - hardcover
+          - igdb
+          - mal
+          - mangaupdates
+          - manual
+          - openlibrary
+          - tmdb
+        description: Source of the media item data.
+        required: true
+      tags:
+      - media
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WatchProvidersResponse'
+              examples:
+                WatchProviders:
+                  value:
+                    region: US
+                    link: https://www.themoviedb.org/movie/603-the-matrix/watch?locale=US
+                    no_charge:
+                    - provider_id: 8
+                      provider_name: Netflix
+                      image: https://image.tmdb.org/t/p/w500/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg
+                      display_priority: 0
+                      link: https://www.netflix.com/title/20557937
+                      tv_link: https://www.netflix.com/watch/20557937
+                      rent_price: null
+                      rent_quality: null
+                      buy_price: null
+                      buy_quality: null
+                      prices: null
+                    paid:
+                    - provider_id: 2
+                      provider_name: Apple TV
+                      image: https://image.tmdb.org/t/p/w500/9ghgSC0MA082EL6HLCW3GalykFD.jpg
+                      display_priority: 4
+                      link: https://tv.apple.com/us/movie/the-matrix/umc.cmc.1fcm4ui9ibn5pbk1jcuqnszmx
+                      tv_link: https://tv.apple.com/us/movie/the-matrix/umc.cmc.1fcm4ui9ibn5pbk1jcuqnszmx
+                      rent_price: $3.99
+                      rent_quality: SD
+                      buy_price: $14.99
+                      buy_quality: HD
+                      prices:
+                        rent:
+                          SD: $3.99
+                          HD: $3.99
+                          4K: $3.99
+                        buy:
+                          HD: $14.99
+                          4K: $14.99
+                  summary: Watch providers
+          description: Successful response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+              examples:
+                InvalidRequestExample:
+                  value:
+                    detail: Invalid request.
+                  summary: Invalid request example
+                  description: Invalid request example
+          description: Bad request
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+              examples:
+                NoAuthenticationExample:
+                  value:
+                    detail: Authentication credentials were not provided.
+                  summary: No authentication example
+                  description: No authentication example
+                InvalidTokenExample:
+                  value:
+                    detail: Invalid token
+                  summary: Invalid token example
+                  description: Invalid token example
+          description: Unauthorized
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+              examples:
+                NotFoundExample:
+                  value:
+                    detail: Not found.
+                  summary: Not found example
+                  description: Not found example
+          description: Not found
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+              examples:
+                InternalServerErrorExample:
+                  value:
+                    detail: Internal server error.
+                  summary: Internal server error
+                  description: Internal server error
+          description: Internal server error
   /api/v1/media/{media_type}/{source}/{media_id}/{season_number}/{episode_number}/sync/:
     post:
       operationId: episode_sync_post

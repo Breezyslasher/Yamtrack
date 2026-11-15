@@ -184,6 +184,9 @@
 - [x] `/api/v1/media/{media_type}/{source}/{media_id}/{season_number}/{episode_number}/lists/{list_id}/`
     - [x] DELETE: Delete tracked item from specific list
     - [x] PUT: Add tracked item to specific list
+- [x] `/api/v1/media/{media_type}/{source}/{media_id}/{season_number}/{episode_number}/providers/`
+    - [x] GET: Get where to watch an episode if media is tv serie (no charge and paid providers)
+        - TMDB has no providers per episode, so these are the season's. When `JUSTWATCH_ENABLED` is set and JustWatch has the episode, they are replaced by its offers, with the episode's own `link` and `tv_link`. Accepts the `region` and `quality` parameters of the media providers endpoint.
 - [x] `/api/v1/media/{media_type}/{source}/{media_id}/{season_number}/{episode_number}/sync/`
     - [x] POST: Update metadata of tracked episode (season)
 - [x] `/api/v1/people/search/`
