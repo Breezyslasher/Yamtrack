@@ -84,6 +84,9 @@ from .media import (
     UpdateSeasonSerializer,
     UpdateTVSerializer,
     UserManualParentField,
+    WatchEpisodeSerializer,
+    WatchMediaSerializer,
+    WatchSeasonSerializer,
 )
 from .mixed import (
     MixedMediaSerializer,
@@ -218,10 +221,13 @@ __all__ = [
     "UserProfileSerializer",
     "UserSerializer",
     "UserUpdateSerializer",
+    "WatchEpisodeSerializer",
+    "WatchMediaSerializer",
     "WatchProviderListItemSerializer",
     "WatchProviderListResponseSerializer",
     "WatchProviderSerializer",
     "WatchProvidersResponseSerializer",
+    "WatchSeasonSerializer",
     "WebUIPreferencesSerializer",
     "serializer_map",
 ]
